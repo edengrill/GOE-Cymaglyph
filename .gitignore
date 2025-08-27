@@ -1,0 +1,79 @@
+# Build directories
+build/
+Build/
+Builds/
+cmake-build-*/
+.cmake/
+
+# IDE files
+.vscode/
+.idea/
+*.xcworkspace/
+*.xcuserdata/
+.DS_Store
+*.swp
+*.swo
+
+# Plugin builds
+*.vst3
+*.component
+*.vst
+*.au
+*.aaxplugin
+
+# JUCE generated files
+JuceLibraryCode/
+*.jucer.user
+
+# Compiled files
+*.o
+*.obj
+*.a
+*.lib
+*.dll
+*.so
+*.dylib
+*.exe
+
+# Debug files
+*.dSYM/
+*.pdb
+*.ilk
+
+# Temporary files
+*~
+.#*
+\#*#
+
+# Log files
+*.log
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msm
+*.msp
+*.lnk

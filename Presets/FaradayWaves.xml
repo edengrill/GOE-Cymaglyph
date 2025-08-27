@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Parameters>
+  <PARAM id="freq" value="55.0"/>
+  <PARAM id="gain" value="0.4"/>
+  <PARAM id="wave" value="0"/>
+  <PARAM id="gate" value="1"/>
+  <PARAM id="a4ref" value="440.0"/>
+  <PARAM id="sweepOn" value="1"/>
+  <PARAM id="sweepRate" value="0.1"/>
+  <PARAM id="sweepRangeCents" value="400.0"/>
+  <PARAM id="medium" value="2"/>
+  <PARAM id="geom" value="1"/>
+  <PARAM id="mount" value="0"/>
+  <PARAM id="accuracy" value="0.7"/>
+  <PARAM id="nodeEps" value="0.02"/>
+  <PARAM id="grainAmt" value="0.4"/>
+  <PARAM id="colorMode" value="1"/>
+</Parameters>
