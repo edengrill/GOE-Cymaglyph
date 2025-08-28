@@ -22,18 +22,18 @@ void SettingsPanel::paint(juce::Graphics& g)
     
     auto bounds = getLocalBounds();
     
-    // Semi-transparent background
-    g.setColour(juce::Colours::black.withAlpha(0.8f * opacity));
+    // Solid dark background for better visibility
+    g.setColour(juce::Colours::black.withAlpha(0.95f * opacity));
     g.fillRect(bounds);
     
-    // Title
+    // Title with simple font
     g.setColour(juce::Colours::white.withAlpha(opacity));
-    g.setFont(28.0f);
-    g.drawText("GOE CYMAGLYPH v3.0", bounds.removeFromTop(60), juce::Justification::centred);
+    g.setFont(juce::Font("Arial", 28.0f, juce::Font::bold));
+    g.drawText("SAND WIZARD by Garden of Eden", bounds.removeFromTop(70), juce::Justification::centred);
     
-    // Instructions
-    g.setFont(16.0f);
-    g.setColour(juce::Colours::white.withAlpha(0.7f * opacity));
+    // Instructions with clearer font
+    g.setFont(juce::Font("Arial", 14.0f, juce::Font::plain));
+    g.setColour(juce::Colours::white.withAlpha(0.9f * opacity));
     juce::String instructions = "Click a mode to select • Play notes on your MIDI keyboard";
     g.drawText(instructions, bounds.removeFromTop(30), juce::Justification::centred);
     
@@ -52,60 +52,60 @@ void SettingsPanel::paint(juce::Graphics& g)
         
         if (i == selectedMode)
         {
-            // Selected mode highlight
+            // Selected mode highlight with sharp corners
             g.setColour(juce::Colours::white.withAlpha(0.2f * cardOpacity));
-            g.fillRoundedRectangle(card.bounds.expanded(4), 12.0f);
+            g.fillRect(card.bounds.expanded(4));
         }
         
-        // Card gradient background
-        juce::ColourGradient gradient(
-            modeInfo.primaryColor.withAlpha(0.6f * cardOpacity),
-            card.bounds.getTopLeft(),
-            modeInfo.secondaryColor.withAlpha(0.4f * cardOpacity),
-            card.bounds.getBottomRight(),
-            false
-        );
-        g.setGradientFill(gradient);
-        g.fillRoundedRectangle(card.bounds, 10.0f);
-        
-        // Card border
+        // Solid color background with sharp corners
         g.setColour(card.isHovered ? 
-                   juce::Colours::white.withAlpha(0.8f * cardOpacity) :
-                   juce::Colours::white.withAlpha(0.3f * cardOpacity));
-        g.drawRoundedRectangle(card.bounds, 10.0f, 2.0f);
+                   modeInfo.primaryColor.withAlpha(0.8f * cardOpacity) :
+                   modeInfo.primaryColor.withAlpha(0.5f * cardOpacity));
+        g.fillRect(card.bounds);
         
-        // Mode name
+        // Thick white border with sharp corners
+        g.setColour(card.isHovered ? 
+                   juce::Colours::white.withAlpha(cardOpacity) :
+                   juce::Colours::white.withAlpha(0.7f * cardOpacity));
+        g.drawRect(card.bounds, card.isHovered ? 3.0f : 2.0f);
+        
+        // Mode name with smaller minimal font
         g.setColour(juce::Colours::white.withAlpha(cardOpacity));
-        g.setFont(18.0f);
-        g.drawText(modeInfo.name, card.bounds.removeFromTop(40), juce::Justification::centred);
+        g.setFont(juce::Font("Arial", 16.0f, juce::Font::bold));
+        auto nameArea = card.bounds;
+        g.drawText(modeInfo.name, nameArea.removeFromTop(45), juce::Justification::centred);
         
-        // Mode description
-        g.setFont(12.0f);
-        g.setColour(juce::Colours::white.withAlpha(0.7f * cardOpacity));
-        g.drawText(modeInfo.description, card.bounds, juce::Justification::centred);
+        // Mode description with minimal font
+        g.setFont(juce::Font("Arial", 11.0f, juce::Font::plain));
+        g.setColour(juce::Colours::white.withAlpha(0.9f * cardOpacity));
+        auto descArea = card.bounds;
+        descArea.removeFromTop(45);
+        g.drawText(modeInfo.description, descArea, juce::Justification::centred);
     }
     
-    // Mono/Poly toggle
+    // Mono/Poly toggle with sharp corners
     auto toggleBounds = monoPolyToggle;
     g.setColour(monoPolyHovered ? 
                juce::Colours::white.withAlpha(0.9f * opacity) :
                juce::Colours::white.withAlpha(0.6f * opacity));
-    g.drawRoundedRectangle(toggleBounds, 8.0f, 2.0f);
+    g.drawRect(toggleBounds, 2.0f);
     
-    // Toggle background
-    g.setColour(juce::Colours::white.withAlpha(0.1f * opacity));
-    g.fillRoundedRectangle(toggleBounds, 8.0f);
+    // Toggle background with sharp corners
+    g.setColour(monoPolyHovered ?
+               juce::Colours::white.withAlpha(0.3f * opacity) :
+               juce::Colours::white.withAlpha(0.2f * opacity));
+    g.fillRect(toggleBounds);
     
-    // Toggle text
-    g.setFont(20.0f);
+    // Toggle text with minimal font
+    g.setFont(juce::Font("Arial", 18.0f, juce::Font::bold));
     g.setColour(juce::Colours::white.withAlpha(opacity));
     juce::String modeText = monoMode ? "MONOPHONIC" : "POLYPHONIC";
     g.drawText(modeText, toggleBounds, juce::Justification::centred);
     
-    // Footer hint
-    g.setFont(14.0f);
-    g.setColour(juce::Colours::white.withAlpha(0.5f * opacity));
-    g.drawText("Settings appear after 2 seconds of silence", 
+    // Footer hint with minimal text
+    g.setFont(juce::Font("Arial", 12.0f, juce::Font::plain));
+    g.setColour(juce::Colours::white.withAlpha(0.8f * opacity));
+    g.drawText("Settings appear after 0.5 seconds of silence", 
                getLocalBounds().removeFromBottom(30), juce::Justification::centred);
 }
 
@@ -192,19 +192,30 @@ void SettingsPanel::layoutModeCards()
 {
     auto bounds = getLocalBounds();
     bounds.removeFromTop(120); // Space for title and instructions
-    bounds.removeFromBottom(80); // Space for mono/poly toggle and footer
+    bounds.removeFromBottom(100); // Space for mono/poly toggle and footer
     
     // Layout mode cards in a grid
     const int cardsPerRow = 5;
     const int numRows = 2;
-    const float cardWidth = 140.0f;
-    const float cardHeight = 100.0f;
-    const float spacing = 20.0f;
+    float cardWidth = 160.0f;
+    float cardHeight = 140.0f;
+    float spacing = 20.0f;
     
     float totalWidth = cardsPerRow * cardWidth + (cardsPerRow - 1) * spacing;
     float totalHeight = numRows * cardHeight + (numRows - 1) * spacing;
     
-    float startX = (bounds.getWidth() - totalWidth) * 0.5f;
+    // Make sure cards fit in window
+    if (totalWidth > bounds.getWidth())
+    {
+        float scale = (bounds.getWidth() - 40) / totalWidth;
+        cardWidth *= scale;
+        cardHeight *= scale;
+        spacing *= scale;
+        totalWidth = cardsPerRow * cardWidth + (cardsPerRow - 1) * spacing;
+        totalHeight = numRows * cardHeight + (numRows - 1) * spacing;
+    }
+    
+    float startX = (getWidth() - totalWidth) * 0.5f;
     float startY = bounds.getY() + (bounds.getHeight() - totalHeight) * 0.5f;
     
     for (int i = 0; i < SynthEngine::NumModes; i++)
@@ -218,13 +229,13 @@ void SettingsPanel::layoutModeCards()
         modeCards[i].bounds = juce::Rectangle<float>(x, y, cardWidth, cardHeight);
     }
     
-    // Position mono/poly toggle
+    // Position mono/poly toggle - larger for better clicking
     float toggleY = startY + totalHeight + 40.0f;
     monoPolyToggle = juce::Rectangle<float>(
-        (getWidth() - 200.0f) * 0.5f, 
+        (getWidth() - 250.0f) * 0.5f, 
         toggleY, 
-        200.0f, 
-        40.0f
+        250.0f, 
+        50.0f
     );
 }
 

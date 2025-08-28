@@ -1,5 +1,4 @@
 #include "SynthEngine.h"
-#include <juce_core/juce_core.h>
 
 const std::array<SynthEngine::ModeInfo, SynthEngine::NumModes> SynthEngine::modeInfoTable = {{
     {"Pure Sine", "Clean sine waves", 

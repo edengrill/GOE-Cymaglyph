@@ -3,7 +3,8 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "PluginProcessor.h"
-#include "Visualizer.h"
+#include "EnhancedVisualizer.h"
+#include "SettingsPanel.h"
 
 class GOECymaglyphAudioProcessorEditor : public juce::AudioProcessorEditor,
                                          private juce::Timer,
@@ -17,7 +18,7 @@ public:
     void paint(juce::Graphics&) override;
     void resized() override;
     
-    // Keyboard handling
+    // Keyboard handling (not used in v3.0)
     bool keyPressed(const juce::KeyPress& key) override;
 
 private:
@@ -36,12 +37,12 @@ private:
     
     GOECymaglyphAudioProcessor& audioProcessor;
     
-    // Main visualizer
-    std::unique_ptr<CymaglyphVisualizer> visualizer;
+    // Main components
+    std::unique_ptr<EnhancedVisualizer> visualizer;
+    std::unique_ptr<SettingsPanel> settingsPanel;
     
-    // Help overlay
-    bool showHelpOverlay = false;
-    bool hasShownHelp = false;
+    // Silence detection
+    float silenceTimer = 0.0f;
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(GOECymaglyphAudioProcessorEditor)
 };

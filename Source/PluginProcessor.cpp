@@ -63,7 +63,13 @@ void GOECymaglyphAudioProcessor::parameterChanged(const juce::String& parameterI
 
 bool GOECymaglyphAudioProcessor::isPlaying() const
 {
-    // Check if any voice is active
+    // Check monophonic mode
+    if (isMonophonic.load())
+    {
+        return currentMonoNote >= 0;
+    }
+    
+    // Check polyphonic voices
     for (const auto& voice : voices)
     {
         if (voice.active && voice.amplitude > 0.01f)
