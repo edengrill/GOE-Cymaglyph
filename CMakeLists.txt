@@ -48,6 +48,12 @@ target_sources(GOECymaglyph PRIVATE
     Source/Visualizer.cpp
     Source/ModeTables.h
     Source/ShaderPrograms.h
+    Source/SynthEngine.h
+    Source/SynthEngine.cpp
+    Source/EnhancedVisualizer.h
+    Source/EnhancedVisualizer.cpp
+    Source/SettingsPanel.h
+    Source/SettingsPanel.cpp
 )
 
 # Add JUCE module paths

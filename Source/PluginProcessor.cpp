@@ -7,9 +7,12 @@ GOECymaglyphAudioProcessor::GOECymaglyphAudioProcessor()
                     .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
       apvts(*this, nullptr, "Parameters", createParameterLayout())
 {
+    // Initialize synthesis engine
+    synthEngine = std::make_unique<SynthEngine>();
+    
     // Initialize smoothed values
     smoothedFreq.setCurrentAndTargetValue(440.0f);
-    smoothedGain.setCurrentAndTargetValue(0.5f);
+    smoothedGain.setCurrentAndTargetValue(0.7f);
     
     // Initialize all voices
     for (auto& voice : voices)
@@ -58,50 +61,15 @@ void GOECymaglyphAudioProcessor::parameterChanged(const juce::String& parameterI
     // Not actively used in v2
 }
 
-void GOECymaglyphAudioProcessor::cycleMode()
+bool GOECymaglyphAudioProcessor::isPlaying() const
 {
-    PlayMode mode = currentMode.load();
-    
-    // Reset voices when changing modes
-    for (auto& voice : voices)
+    // Check if any voice is active
+    for (const auto& voice : voices)
     {
-        voice.reset();
+        if (voice.active && voice.amplitude > 0.01f)
+            return true;
     }
-    monoNoteNumber = -1;
-    
-    // Cycle to next mode
-    if (mode == Neutral)
-    {
-        currentMode = Monophonic;
-    }
-    else if (mode == Monophonic)
-    {
-        currentMode = Polyphonic;
-    }
-    else
-    {
-        currentMode = Neutral;
-    }
-}
-
-void GOECymaglyphAudioProcessor::toggleGate()
-{
-    neutralGate = !neutralGate.load();
-}
-
-void GOECymaglyphAudioProcessor::adjustFrequency(float delta)
-{
-    float freq = currentFrequency.load();
-    
-    // Exponential frequency adjustment
-    float factor = 1.0f + (delta * 0.02f);
-    freq *= factor;
-    
-    // Clamp to valid range
-    freq = juce::jlimit(20.0f, 20000.0f, freq);
-    
-    currentFrequency = freq;
-    smoothedFreq.setTargetValue(freq);
+    return false;
 }
 
 std::vector<float> GOECymaglyphAudioProcessor::getActiveFrequencies() const
@@ -163,57 +131,28 @@ void GOECymaglyphAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     const int numSamples = buffer.getNumSamples();
     const float phaseIncBase = static_cast<float>(1.0 / sampleRate);
     
-    PlayMode mode = currentMode.load();
-    
     // Clear buffer first
     buffer.clear();
     
-    if (mode == Neutral)
-    {
-        // Neutral mode - manual frequency control
-        if (!neutralGate.load())
-        {
-            return; // Gate is off
-        }
-        
-        for (int sample = 0; sample < numSamples; ++sample)
-        {
-            const float freq = smoothedFreq.getNextValue();
-            const float gain = smoothedGain.getNextValue();
-            
-            // Generate sine wave
-            float output = generateSine(neutralPhase) * gain;
-            
-            // Write to all channels
-            for (int channel = 0; channel < numChannels; ++channel)
-            {
-                buffer.getWritePointer(channel)[sample] = output;
-            }
-            
-            // Update phase
-            const float phaseInc = freq * phaseIncBase;
-            neutralPhase += phaseInc;
-            if (neutralPhase >= 1.0f) neutralPhase -= 1.0f;
-        }
-        
-        currentPhase.store(neutralPhase);
-    }
-    else if (mode == Monophonic)
+    bool mono = isMonophonic.load();
+    int synthMode = currentSynthMode.load();
+    
+    if (mono)
     {
         // Monophonic mode - single note at a time
-        if (monoNoteNumber < 0)
+        if (currentMonoNote < 0)
         {
             return; // No note playing
         }
         
-        float freq = noteToFrequency(monoNoteNumber);
+        float freq = noteToFrequency(currentMonoNote);
         
         for (int sample = 0; sample < numSamples; ++sample)
         {
             const float gain = smoothedGain.getNextValue();
             
-            // Generate sine wave
-            float output = generateSine(neutralPhase) * gain;
+            // Generate waveform using synthesis engine
+            float output = synthEngine->generateSample(monoPhase, freq, synthMode) * gain;
             
             // Write to all channels
             for (int channel = 0; channel < numChannels; ++channel)
@@ -223,12 +162,12 @@ void GOECymaglyphAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
             
             // Update phase
             const float phaseInc = freq * phaseIncBase;
-            neutralPhase += phaseInc;
-            if (neutralPhase >= 1.0f) neutralPhase -= 1.0f;
+            monoPhase += phaseInc;
+            if (monoPhase >= 1.0f) monoPhase -= 1.0f;
         }
         
         currentFrequency.store(freq);
-        currentPhase.store(neutralPhase);
+        currentPhase.store(monoPhase);
     }
     else // Polyphonic
     {
@@ -249,8 +188,8 @@ void GOECymaglyphAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
                     
                     if (voice.amplitude > 0.001f)
                     {
-                        // Generate sine wave for this voice
-                        output += generateSine(voice.phase) * voice.amplitude;
+                        // Generate waveform using synthesis engine
+                        output += synthEngine->generateSample(voice.phase, voice.frequency, synthMode) * voice.amplitude;
                         
                         // Update phase
                         const float phaseInc = voice.frequency * phaseIncBase;
@@ -295,56 +234,23 @@ void GOECymaglyphAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     }
 }
 
-float GOECymaglyphAudioProcessor::generateSine(float ph)
-{
-    return std::sin(2.0f * juce::MathConstants<float>::pi * ph);
-}
-
-float GOECymaglyphAudioProcessor::generateTriangle(float ph)
-{
-    if (ph < 0.25f)
-        return ph * 4.0f;
-    else if (ph < 0.75f)
-        return 2.0f - ph * 4.0f;
-    else
-        return ph * 4.0f - 4.0f;
-}
-
-float GOECymaglyphAudioProcessor::generateSquare(float ph)
-{
-    // Band-limited square using additive synthesis
-    float output = 0.0f;
-    const float fundamental = 2.0f * juce::MathConstants<float>::pi * ph;
-    
-    for (int harmonic = 1; harmonic <= 19; harmonic += 2)
-    {
-        output += std::sin(fundamental * harmonic) / harmonic;
-    }
-    
-    return output * (4.0f / juce::MathConstants<float>::pi);
-}
 
 void GOECymaglyphAudioProcessor::handleMidiMessage(const juce::MidiMessage& message)
 {
-    PlayMode mode = currentMode.load();
+    bool mono = isMonophonic.load();
     
-    if (mode == Neutral)
-    {
-        // Ignore MIDI in neutral mode
-        return;
-    }
-    else if (mode == Monophonic)
+    if (mono)
     {
         if (message.isNoteOn())
         {
-            monoNoteNumber = message.getNoteNumber();
-            float freq = noteToFrequency(monoNoteNumber);
+            currentMonoNote = message.getNoteNumber();
+            float freq = noteToFrequency(currentMonoNote);
             currentFrequency.store(freq);
             smoothedFreq.setTargetValue(freq);
         }
-        else if (message.isNoteOff() && message.getNoteNumber() == monoNoteNumber)
+        else if (message.isNoteOff() && message.getNoteNumber() == currentMonoNote)
         {
-            monoNoteNumber = -1;
+            currentMonoNote = -1;
         }
     }
     else // Polyphonic

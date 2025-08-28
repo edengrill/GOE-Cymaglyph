@@ -55,15 +55,14 @@ void CymaglyphVisualizer::paint(juce::Graphics& g)
             float x = (i / float(gridSize - 1)) - 0.5f;
             float y = (j / float(gridSize - 1)) - 0.5f;
             
-            // Calculate mode amplitude
+            // Calculate mode amplitude (no pulsing)
             float u1 = std::sin(3.14159f * modeParams.mode1_m * (x + 0.5f)) *
                       std::sin(3.14159f * modeParams.mode1_n * (y + 0.5f));
             float u2 = std::sin(3.14159f * modeParams.mode2_m * (x + 0.5f)) *
                       std::sin(3.14159f * modeParams.mode2_n * (y + 0.5f));
             
             float amplitude = juce::jlimit(-1.0f, 1.0f,
-                (u1 * (1.0f - modeParams.modeCrossfade) + u2 * modeParams.modeCrossfade) *
-                std::cos(currentTime * 5.0f));
+                (u1 * (1.0f - modeParams.modeCrossfade) + u2 * modeParams.modeCrossfade));
             
             float intensity = std::abs(amplitude);
             

@@ -2,6 +2,7 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_dsp/juce_dsp.h>
+#include "SynthEngine.h"
 #include <atomic>
 #include <vector>
 #include <array>
@@ -9,15 +10,7 @@
 class GOECymaglyphAudioProcessor : public juce::AudioProcessor,
                                    public juce::AudioProcessorValueTreeState::Listener
 {
-public:
-    // Play modes
-    enum PlayMode
-    {
-        Neutral = 0,
-        Monophonic,
-        Polyphonic
-    };
-    
+public:    
     GOECymaglyphAudioProcessor();
     ~GOECymaglyphAudioProcessor() override;
 
@@ -55,18 +48,17 @@ public:
     // APVTS getter
     juce::AudioProcessorValueTreeState& getAPVTS() { return apvts; }
     
-    // Mode control
-    PlayMode getCurrentMode() const { return currentMode; }
-    void cycleMode();
-    
-    // Neutral mode controls
-    void toggleGate();
-    void adjustFrequency(float delta);
+    // Synthesis control
+    void setSynthMode(int mode) { currentSynthMode = mode; }
+    int getSynthMode() const { return currentSynthMode.load(); }
+    void setMonophonic(bool mono) { isMonophonic = mono; }
+    bool getMonophonic() const { return isMonophonic.load(); }
     
     // Get current playing state
     float getCurrentFrequency() const { return currentFrequency.load(); }
     float getCurrentPhase() const { return currentPhase.load(); }
     std::vector<float> getActiveFrequencies() const;
+    bool isPlaying() const;
     
     // Preset management (keeping for potential future use)
     void loadPreset(const juce::String& presetName);
@@ -95,10 +87,8 @@ private:
         }
     };
     
-    // Waveform generation
-    float generateSine(float phase);
-    float generateTriangle(float phase);
-    float generateSquare(float phase);
+    // Synthesis engine
+    std::unique_ptr<SynthEngine> synthEngine;
     
     // MIDI handling
     void handleMidiMessage(const juce::MidiMessage& message);
@@ -112,15 +102,14 @@ private:
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
     juce::AudioProcessorValueTreeState apvts;
     
-    // Mode state
-    std::atomic<PlayMode> currentMode{Neutral};
+    // Synthesis state
+    std::atomic<int> currentSynthMode{0};
+    std::atomic<bool> isMonophonic{true};
     
     // Audio state
     double sampleRate = 44100.0;
     std::atomic<float> currentFrequency{440.0f};
     std::atomic<float> currentPhase{0.0f};
-    float neutralPhase = 0.0f;
-    std::atomic<bool> neutralGate{false};
     
     // Smoothing
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> smoothedFreq;
@@ -130,19 +119,12 @@ private:
     static constexpr int MAX_VOICES = 8;
     std::array<Voice, MAX_VOICES> voices;
     
-    // Monophonic mode state
-    int monoNoteNumber = -1;
-    
     // A4 reference for MIDI
     float a4Reference = 440.0f;
     
-    // Frequency adjustment state for neutral mode
-    bool leftPressed = false;
-    bool rightPressed = false;
-    float frequencyAdjustSpeed = 0.0f;
-    
-    // Legacy sweep phase (not used in v2)
-    float sweepPhase = 0.0f;
+    // Monophonic tracking
+    int currentMonoNote = -1;
+    float monoPhase = 0.0f;
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(GOECymaglyphAudioProcessor)
 };

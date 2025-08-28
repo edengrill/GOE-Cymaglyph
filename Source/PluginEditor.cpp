@@ -149,8 +149,8 @@ bool GOECymaglyphAudioProcessorEditor::keyPressed(const juce::KeyPress& key)
     // Neutral mode controls
     if (audioProcessor.getCurrentMode() == GOECymaglyphAudioProcessor::Neutral)
     {
-        // Shift - toggle gate
-        if (key.getModifiers().isShiftDown())
+        // Shift - toggle gate (just check for shift key, not as modifier)
+        if (key.getKeyCode() == juce::KeyPress::createFromDescription("shift").getKeyCode())
         {
             audioProcessor.toggleGate();
             return true;
