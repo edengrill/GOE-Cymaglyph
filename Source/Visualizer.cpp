@@ -47,6 +47,8 @@ void CymaglyphVisualizer::resized()
 
 void CymaglyphVisualizer::newOpenGLContextCreated()
 {
+    using namespace juce::gl;
+    
     createShaders();
     createQuad();
     
@@ -61,6 +63,8 @@ void CymaglyphVisualizer::newOpenGLContextCreated()
 
 void CymaglyphVisualizer::openGLContextClosing()
 {
+    using namespace juce::gl;
+    
     shader.reset();
     
     if (vbo != 0) {
@@ -201,6 +205,8 @@ void CymaglyphVisualizer::createShaders()
 
 void CymaglyphVisualizer::createQuad()
 {
+    using namespace juce::gl;
+    
     // Full screen quad vertices
     const GLfloat vertices[] = {
         -1.0f, -1.0f, 0.0f,
@@ -351,6 +357,8 @@ void CymaglyphVisualizer::updateAccumulationBuffer()
 
 void CymaglyphVisualizer::uploadAccumulationTexture()
 {
+    using namespace juce::gl;
+    
     juce::ScopedLock lock(accumBufferLock);
     
     if (accumTexture != 0 && accumBuffer.isValid())

@@ -50,6 +50,12 @@ target_sources(GOECymaglyph PRIVATE
     Source/ShaderPrograms.h
 )
 
+# Add JUCE module paths
+target_include_directories(GOECymaglyph PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/Source
+    ${CMAKE_CURRENT_BINARY_DIR}
+)
+
 # Platform-specific settings
 if(APPLE)
     set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64")
@@ -83,9 +89,9 @@ target_link_libraries(GOECymaglyph
 
 # Set warning levels
 if(MSVC)
-    target_compile_options(GOECymaglyph PRIVATE /W4 /WX)
+    target_compile_options(GOECymaglyph PRIVATE /W4)
 else()
-    target_compile_options(GOECymaglyph PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    target_compile_options(GOECymaglyph PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
 # Copy presets

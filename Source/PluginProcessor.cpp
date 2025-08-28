@@ -314,6 +314,11 @@ juce::StringArray GOECymaglyphAudioProcessor::getPresetNames()
     return presets;
 }
 
+juce::AudioProcessorEditor* GOECymaglyphAudioProcessor::createEditor()
+{
+    return new GOECymaglyphAudioProcessorEditor(*this);
+}
+
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
     return new GOECymaglyphAudioProcessor();
