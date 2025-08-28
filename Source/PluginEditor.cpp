@@ -4,385 +4,202 @@
 GOECymaglyphAudioProcessorEditor::GOECymaglyphAudioProcessorEditor(GOECymaglyphAudioProcessor& p)
     : AudioProcessorEditor(&p), audioProcessor(p)
 {
-    // Set look and feel
-    lookAndFeel.setColour(juce::Slider::textBoxTextColourId, juce::Colours::white);
-    lookAndFeel.setColour(juce::Slider::textBoxBackgroundColourId, juce::Colours::black.withAlpha(0.5f));
-    lookAndFeel.setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::cyan.withAlpha(0.3f));
-    setLookAndFeel(&lookAndFeel);
-    
-    // Create visualizer
+    // Create visualizer that fills the entire window
     visualizer = std::make_unique<CymaglyphVisualizer>(audioProcessor.getAPVTS());
     addAndMakeVisible(visualizer.get());
     
-    // Setup all controls
-    setupParameterControls();
-    setupLayout();
-    
     // Set editor size
-    setSize(1200, 800);
+    setSize(800, 800);
     setResizable(true, true);
-    setResizeLimits(800, 600, 1920, 1200);
+    setResizeLimits(400, 400, 1920, 1920);
     
-    // Start timer to update visualizer frequency
+    // Make this component want keyboard focus
+    setWantsKeyboardFocus(true);
+    
+    // Start timer to update visualizer
     startTimerHz(30);
+    
+    // Show help on first launch
+    if (!hasShownHelp)
+    {
+        showHelpOverlay = true;
+        hasShownHelp = true;
+    }
 }
 
 GOECymaglyphAudioProcessorEditor::~GOECymaglyphAudioProcessorEditor()
 {
-    setLookAndFeel(nullptr);
     stopTimer();
-}
-
-void GOECymaglyphAudioProcessorEditor::setupParameterControls()
-{
-    auto& apvts = audioProcessor.getAPVTS();
-    
-    // Frequency control
-    freqSlider.setSliderStyle(juce::Slider::Rotary);
-    freqSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 80, 20);
-    freqSlider.setRange(20.0, 20000.0);
-    freqSlider.setSkewFactorFromMidPoint(1000.0);
-    freqSlider.setTextValueSuffix(" Hz");
-    freqSlider.setNumDecimalPlacesToDisplay(1);
-    addAndMakeVisible(freqSlider);
-    freqAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, "freq", freqSlider);
-    
-    freqLabel.setText("Frequency", juce::dontSendNotification);
-    freqLabel.attachToComponent(&freqSlider, false);
-    freqLabel.setJustificationType(juce::Justification::centredTop);
-    addAndMakeVisible(freqLabel);
-    
-    // Frequency text entry
-    freqTextEntry.setMultiLine(false);
-    freqTextEntry.setReturnKeyStartsNewLine(false);
-    freqTextEntry.setText("440.0");
-    freqTextEntry.onReturnKey = [this] {
-        auto freq = freqTextEntry.getText().getFloatValue();
-        freq = juce::jlimit(20.0f, 20000.0f, freq);
-        freqSlider.setValue(freq);
-    };
-    addAndMakeVisible(freqTextEntry);
-    
-    // Gain control
-    gainSlider.setSliderStyle(juce::Slider::Rotary);
-    gainSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 50, 20);
-    gainSlider.setRange(0.0, 1.0);
-    gainSlider.setTextValueSuffix("");
-    gainSlider.setNumDecimalPlacesToDisplay(2);
-    addAndMakeVisible(gainSlider);
-    gainAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, "gain", gainSlider);
-    
-    gainLabel.setText("Gain", juce::dontSendNotification);
-    gainLabel.attachToComponent(&gainSlider, false);
-    gainLabel.setJustificationType(juce::Justification::centredTop);
-    addAndMakeVisible(gainLabel);
-    
-    // Waveform selector
-    waveformSelector.addItem("Sine", 1);
-    waveformSelector.addItem("Triangle", 2);
-    waveformSelector.addItem("Square", 3);
-    addAndMakeVisible(waveformSelector);
-    waveAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(apvts, "wave", waveformSelector);
-    
-    waveformLabel.setText("Waveform", juce::dontSendNotification);
-    waveformLabel.attachToComponent(&waveformSelector, false);
-    addAndMakeVisible(waveformLabel);
-    
-    // Gate button
-    gateButton.setButtonText("Gate");
-    addAndMakeVisible(gateButton);
-    gateAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(apvts, "gate", gateButton);
-    
-    // A4 Reference
-    a4RefSlider.setSliderStyle(juce::Slider::LinearHorizontal);
-    a4RefSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
-    a4RefSlider.setRange(415.0, 466.0);
-    a4RefSlider.setTextValueSuffix(" Hz");
-    addAndMakeVisible(a4RefSlider);
-    a4RefAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, "a4ref", a4RefSlider);
-    
-    a4RefLabel.setText("A4 Ref", juce::dontSendNotification);
-    a4RefLabel.attachToComponent(&a4RefSlider, true);
-    addAndMakeVisible(a4RefLabel);
-    
-    // Sweep controls
-    sweepGroup.setText("Sweep");
-    addAndMakeVisible(sweepGroup);
-    
-    sweepEnableButton.setButtonText("Enable");
-    addAndMakeVisible(sweepEnableButton);
-    sweepEnableAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(apvts, "sweepOn", sweepEnableButton);
-    
-    sweepRateSlider.setSliderStyle(juce::Slider::LinearHorizontal);
-    sweepRateSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
-    sweepRateSlider.setRange(0.01, 10.0);
-    sweepRateSlider.setSkewFactorFromMidPoint(1.0);
-    sweepRateSlider.setTextValueSuffix(" Hz");
-    addAndMakeVisible(sweepRateSlider);
-    sweepRateAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, "sweepRate", sweepRateSlider);
-    
-    sweepRateLabel.setText("Rate", juce::dontSendNotification);
-    sweepRateLabel.attachToComponent(&sweepRateSlider, true);
-    addAndMakeVisible(sweepRateLabel);
-    
-    sweepRangeSlider.setSliderStyle(juce::Slider::LinearHorizontal);
-    sweepRangeSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
-    sweepRangeSlider.setRange(0.0, 2400.0);
-    sweepRangeSlider.setTextValueSuffix(" cents");
-    addAndMakeVisible(sweepRangeSlider);
-    sweepRangeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, "sweepRangeCents", sweepRangeSlider);
-    
-    sweepRangeLabel.setText("Range", juce::dontSendNotification);
-    sweepRangeLabel.attachToComponent(&sweepRangeSlider, true);
-    addAndMakeVisible(sweepRangeLabel);
-    
-    // Visual controls
-    visualGroup.setText("Visual");
-    addAndMakeVisible(visualGroup);
-    
-    mediumSelector.addItem("Plate", 1);
-    mediumSelector.addItem("Membrane", 2);
-    mediumSelector.addItem("Water", 3);
-    addAndMakeVisible(mediumSelector);
-    mediumAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(apvts, "medium", mediumSelector);
-    
-    mediumLabel.setText("Medium", juce::dontSendNotification);
-    mediumLabel.attachToComponent(&mediumSelector, true);
-    addAndMakeVisible(mediumLabel);
-    
-    geometrySelector.addItem("Square", 1);
-    geometrySelector.addItem("Circle", 2);
-    addAndMakeVisible(geometrySelector);
-    geomAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(apvts, "geom", geometrySelector);
-    
-    geometryLabel.setText("Geometry", juce::dontSendNotification);
-    geometryLabel.attachToComponent(&geometrySelector, true);
-    addAndMakeVisible(geometryLabel);
-    
-    mountingSelector.addItem("Edge Clamped", 1);
-    mountingSelector.addItem("Center Clamped", 2);
-    addAndMakeVisible(mountingSelector);
-    mountAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(apvts, "mount", mountingSelector);
-    
-    mountingLabel.setText("Mounting", juce::dontSendNotification);
-    mountingLabel.attachToComponent(&mountingSelector, true);
-    addAndMakeVisible(mountingLabel);
-    
-    accuracySlider.setSliderStyle(juce::Slider::LinearHorizontal);
-    accuracySlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
-    accuracySlider.setRange(0.0, 1.0);
-    addAndMakeVisible(accuracySlider);
-    accuracyAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, "accuracy", accuracySlider);
-    
-    accuracyLabel.setText("Accuracy", juce::dontSendNotification);
-    accuracyLabel.attachToComponent(&accuracySlider, true);
-    addAndMakeVisible(accuracyLabel);
-    
-    nodeThresholdSlider.setSliderStyle(juce::Slider::LinearHorizontal);
-    nodeThresholdSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
-    nodeThresholdSlider.setRange(0.0, 0.1);
-    addAndMakeVisible(nodeThresholdSlider);
-    nodeEpsAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, "nodeEps", nodeThresholdSlider);
-    
-    nodeThresholdLabel.setText("Node Threshold", juce::dontSendNotification);
-    nodeThresholdLabel.attachToComponent(&nodeThresholdSlider, true);
-    addAndMakeVisible(nodeThresholdLabel);
-    
-    grainAmountSlider.setSliderStyle(juce::Slider::LinearHorizontal);
-    grainAmountSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
-    grainAmountSlider.setRange(0.0, 1.0);
-    addAndMakeVisible(grainAmountSlider);
-    grainAmtAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, "grainAmt", grainAmountSlider);
-    
-    grainAmountLabel.setText("Grain Amount", juce::dontSendNotification);
-    grainAmountLabel.attachToComponent(&grainAmountSlider, true);
-    addAndMakeVisible(grainAmountLabel);
-    
-    colorModeSelector.addItem("Mono", 1);
-    colorModeSelector.addItem("Heat", 2);
-    addAndMakeVisible(colorModeSelector);
-    colorModeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(apvts, "colorMode", colorModeSelector);
-    
-    colorModeLabel.setText("Color Mode", juce::dontSendNotification);
-    colorModeLabel.attachToComponent(&colorModeSelector, true);
-    addAndMakeVisible(colorModeLabel);
-    
-    // Action buttons
-    resetAccumButton.setButtonText("Reset Accumulation");
-    resetAccumButton.addListener(this);
-    addAndMakeVisible(resetAccumButton);
-    
-    saveImageButton.setButtonText("Save Image");
-    saveImageButton.addListener(this);
-    addAndMakeVisible(saveImageButton);
-    
-    // Preset controls
-    presetSelector.addItem("Default", 1);
-    addAndMakeVisible(presetSelector);
-    updatePresetList();
-    
-    presetLabel.setText("Presets", juce::dontSendNotification);
-    presetLabel.attachToComponent(&presetSelector, true);
-    addAndMakeVisible(presetLabel);
-    
-    savePresetButton.setButtonText("Save Preset");
-    savePresetButton.addListener(this);
-    addAndMakeVisible(savePresetButton);
-    
-    // About label
-    aboutLabel.setText("GOE Cymaglyph — Cymatics-inspired visual tone generator", juce::dontSendNotification);
-    aboutLabel.setJustificationType(juce::Justification::centred);
-    aboutLabel.setFont(juce::Font(12.0f, juce::Font::italic));
-    aboutLabel.setColour(juce::Label::textColourId, juce::Colours::grey);
-    addAndMakeVisible(aboutLabel);
-}
-
-void GOECymaglyphAudioProcessorEditor::setupLayout()
-{
-    // Layout will be handled in resized()
 }
 
 void GOECymaglyphAudioProcessorEditor::paint(juce::Graphics& g)
 {
-    g.fillAll(getLookAndFeel().findColour(juce::ResizableWindow::backgroundColourId).darker(0.3f));
+    g.fillAll(juce::Colours::black);
     
-    // Draw a border around the visualizer
-    g.setColour(juce::Colours::cyan.withAlpha(0.3f));
-    g.drawRect(visualizer->getBounds(), 2);
+    // Draw mode indicator in top left
+    g.setFont(16.0f);
+    g.setColour(juce::Colours::white.withAlpha(0.7f));
+    
+    juce::String modeText;
+    switch (audioProcessor.getCurrentMode())
+    {
+        case GOECymaglyphAudioProcessor::Neutral:
+            modeText = "NEUTRAL - Use arrows & shift";
+            break;
+        case GOECymaglyphAudioProcessor::Monophonic:
+            modeText = "MONOPHONIC - Play single notes";
+            break;
+        case GOECymaglyphAudioProcessor::Polyphonic:
+            modeText = "POLYPHONIC - Play chords";
+            break;
+    }
+    
+    g.drawText(modeText, 10, 10, 300, 25, juce::Justification::left);
+    
+    // Draw help overlay if active
+    if (showHelpOverlay)
+    {
+        // Semi-transparent background
+        g.setColour(juce::Colours::black.withAlpha(0.85f));
+        g.fillAll();
+        
+        // Help text
+        auto bounds = getLocalBounds();
+        auto helpArea = bounds.reduced(50);
+        
+        g.setColour(juce::Colours::white);
+        g.setFont(24.0f);
+        g.drawText("GOE CYMAGLYPH - Controls", helpArea.removeFromTop(40), juce::Justification::centred);
+        
+        g.setFont(18.0f);
+        helpArea.removeFromTop(30);
+        
+        juce::String helpText = 
+            "RETURN/ENTER - Cycle through modes\n\n"
+            "NEUTRAL MODE:\n"
+            "  SHIFT - Toggle sound on/off\n"
+            "  ← → ARROWS - Control frequency (20Hz - 20kHz)\n\n"
+            "MONOPHONIC MODE:\n"
+            "  Play single notes on your MIDI keyboard\n\n"
+            "POLYPHONIC MODE:\n"
+            "  Play multiple notes simultaneously\n\n"
+            "ESC - Toggle this help screen\n\n"
+            "Press any key to continue...";
+            
+        g.drawMultiLineText(helpText, helpArea.getX(), helpArea.getY() + 30, helpArea.getWidth());
+    }
 }
 
 void GOECymaglyphAudioProcessorEditor::resized()
 {
-    auto bounds = getLocalBounds();
-    
-    // Footer
-    auto footer = bounds.removeFromBottom(20);
-    aboutLabel.setBounds(footer);
-    
-    // Top controls area
-    auto controlsArea = bounds.removeFromTop(250);
-    
-    // Visualizer takes remaining space
-    visualizer->setBounds(bounds.reduced(10));
-    
-    // Top row - main audio controls
-    auto topRow = controlsArea.removeFromTop(100);
-    auto audioControls = topRow.reduced(10);
-    
-    freqSlider.setBounds(audioControls.removeFromLeft(100));
-    freqTextEntry.setBounds(audioControls.removeFromLeft(60).reduced(5, 35));
-    gainSlider.setBounds(audioControls.removeFromLeft(80));
-    waveformSelector.setBounds(audioControls.removeFromLeft(100).reduced(0, 30));
-    gateButton.setBounds(audioControls.removeFromLeft(60).reduced(5, 35));
-    
-    // A4 Reference
-    auto a4Area = audioControls.removeFromLeft(200);
-    a4RefSlider.setBounds(a4Area.reduced(50, 35));
-    
-    // Preset controls
-    auto presetArea = audioControls.removeFromRight(250);
-    savePresetButton.setBounds(presetArea.removeFromRight(80).reduced(0, 35));
-    presetSelector.setBounds(presetArea.reduced(50, 35));
-    
-    // Middle row - sweep controls
-    auto middleRow = controlsArea.removeFromTop(75);
-    sweepGroup.setBounds(middleRow.removeFromLeft(400).reduced(10));
-    auto sweepArea = sweepGroup.getBounds().reduced(10, 20);
-    sweepEnableButton.setBounds(sweepArea.removeFromLeft(60).reduced(0, 10));
-    sweepRateSlider.setBounds(sweepArea.removeFromTop(25).reduced(40, 0));
-    sweepRangeSlider.setBounds(sweepArea.removeFromTop(25).reduced(40, 0));
-    
-    // Bottom row - visual controls
-    auto bottomRow = controlsArea.removeFromTop(75);
-    visualGroup.setBounds(bottomRow.reduced(10));
-    auto visualArea = visualGroup.getBounds().reduced(10, 20);
-    
-    auto visualRow1 = visualArea.removeFromTop(25);
-    mediumSelector.setBounds(visualRow1.removeFromLeft(150).reduced(60, 0));
-    geometrySelector.setBounds(visualRow1.removeFromLeft(150).reduced(60, 0));
-    mountingSelector.setBounds(visualRow1.removeFromLeft(150).reduced(60, 0));
-    colorModeSelector.setBounds(visualRow1.removeFromLeft(150).reduced(60, 0));
-    
-    auto visualRow2 = visualArea.removeFromTop(25);
-    accuracySlider.setBounds(visualRow2.removeFromLeft(200).reduced(80, 0));
-    nodeThresholdSlider.setBounds(visualRow2.removeFromLeft(200).reduced(80, 0));
-    grainAmountSlider.setBounds(visualRow2.removeFromLeft(200).reduced(80, 0));
-    
-    resetAccumButton.setBounds(visualRow2.removeFromLeft(120).reduced(5));
-    saveImageButton.setBounds(visualRow2.removeFromLeft(100).reduced(5));
+    // Visualizer fills entire window
+    visualizer->setBounds(getLocalBounds());
 }
 
 void GOECymaglyphAudioProcessorEditor::timerCallback()
 {
-    // Update visualizer with current frequency
-    visualizer->setFrequency(audioProcessor.getCurrentFrequency());
+    // Update visualizer with current frequency/frequencies
+    if (audioProcessor.getCurrentMode() == GOECymaglyphAudioProcessor::Polyphonic)
+    {
+        auto frequencies = audioProcessor.getActiveFrequencies();
+        if (!frequencies.empty())
+        {
+            // For now, visualize the average or dominant frequency
+            float avgFreq = 0.0f;
+            for (float f : frequencies)
+                avgFreq += f;
+            avgFreq /= frequencies.size();
+            visualizer->setFrequency(avgFreq);
+        }
+    }
+    else
+    {
+        visualizer->setFrequency(audioProcessor.getCurrentFrequency());
+    }
     
-    // Update frequency text entry to match slider
-    freqTextEntry.setText(juce::String(freqSlider.getValue(), 1), juce::dontSendNotification);
+    repaint();
+}
+
+bool GOECymaglyphAudioProcessorEditor::keyPressed(const juce::KeyPress& key)
+{
+    // Hide help overlay on any key if showing
+    if (showHelpOverlay)
+    {
+        showHelpOverlay = false;
+        repaint();
+        return true;
+    }
+    
+    // Return/Enter - cycle modes
+    if (key.isKeyCode(juce::KeyPress::returnKey))
+    {
+        audioProcessor.cycleMode();
+        repaint();
+        return true;
+    }
+    
+    // ESC - toggle help
+    if (key.isKeyCode(juce::KeyPress::escapeKey))
+    {
+        showHelpOverlay = !showHelpOverlay;
+        repaint();
+        return true;
+    }
+    
+    // Neutral mode controls
+    if (audioProcessor.getCurrentMode() == GOECymaglyphAudioProcessor::Neutral)
+    {
+        // Shift - toggle gate
+        if (key.getModifiers().isShiftDown())
+        {
+            audioProcessor.toggleGate();
+            return true;
+        }
+        
+        // Left arrow - decrease frequency
+        if (key.isKeyCode(juce::KeyPress::leftKey))
+        {
+            audioProcessor.adjustFrequency(-1.0f);
+            return true;
+        }
+        
+        // Right arrow - increase frequency  
+        if (key.isKeyCode(juce::KeyPress::rightKey))
+        {
+            audioProcessor.adjustFrequency(1.0f);
+            return true;
+        }
+    }
+    
+    return false;
 }
 
 void GOECymaglyphAudioProcessorEditor::sliderValueChanged(juce::Slider* slider)
 {
-    juce::ignoreUnused(slider);
+    // No longer needed
 }
 
 void GOECymaglyphAudioProcessorEditor::buttonClicked(juce::Button* button)
 {
-    if (button == &resetAccumButton)
-    {
-        visualizer->resetAccumulation();
-    }
-    else if (button == &saveImageButton)
-    {
-        saveImage();
-    }
-    else if (button == &savePresetButton)
-    {
-        auto options = juce::MessageBoxOptions()
-            .withIconType(juce::MessageBoxIconType::NoIcon)
-            .withTitle("Save Preset")
-            .withMessage("Enter preset name:")
-            .withButton("Save")
-            .withButton("Cancel");
-            
-        juce::AlertWindow::showAsync(options, [this](int result) {
-            if (result == 1)
-            {
-                // For simplicity, use a default name for now
-                // In a real implementation, you'd want a text input dialog
-                audioProcessor.savePreset("UserPreset_" + juce::String(juce::Time::currentTimeMillis()));
-                updatePresetList();
-            }
-        });
-    }
+    // No longer needed
+}
+
+void GOECymaglyphAudioProcessorEditor::setupParameterControls()
+{
+    // No longer needed - all controls removed
+}
+
+void GOECymaglyphAudioProcessorEditor::setupLayout()
+{
+    // No longer needed
 }
 
 void GOECymaglyphAudioProcessorEditor::updatePresetList()
 {
-    presetSelector.clear();
-    presetSelector.addItem("Default", 1);
-    
-    auto presets = audioProcessor.getPresetNames();
-    for (int i = 0; i < presets.size(); ++i)
-    {
-        presetSelector.addItem(presets[i], i + 2);
-    }
+    // No longer needed
 }
 
 void GOECymaglyphAudioProcessorEditor::saveImage()
 {
-    auto fileChooser = std::make_shared<juce::FileChooser>(
-        "Save Cymaglyph Image",
-        juce::File::getSpecialLocation(juce::File::userPicturesDirectory),
-        "*.png");
-    
-    fileChooser->launchAsync(juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles,
-        [this, fileChooser](const juce::FileChooser& fc)
-        {
-            auto file = fc.getResult();
-            if (file != juce::File{})
-            {
-                visualizer->saveImage(file);
-            }
-        });
+    // Could keep this for screenshot functionality later
 }
