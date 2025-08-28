@@ -7,7 +7,6 @@
 #include <atomic>
 
 class CymaglyphVisualizer : public juce::Component,
-                            public juce::OpenGLRenderer,
                             private juce::Timer
 {
 public:
@@ -18,11 +17,6 @@ public:
     void paint(juce::Graphics&) override;
     void resized() override;
     
-    // OpenGLRenderer
-    void newOpenGLContextCreated() override;
-    void renderOpenGL() override;
-    void openGLContextClosing() override;
-    
     // Public interface
     void resetAccumulation();
     void saveImage(const juce::File& file);
@@ -32,58 +26,21 @@ private:
     // Timer callback
     void timerCallback() override;
     
-    // OpenGL setup
+    // Accumulation buffer management
+    void updateAccumulationBuffer();
+    
+    // Stub OpenGL functions (for compatibility)
     void createShaders();
     void createQuad();
     void updateUniforms();
-    
-    // Accumulation buffer management
-    void updateAccumulationBuffer();
     void uploadAccumulationTexture();
+    void newOpenGLContextCreated();
+    void renderOpenGL();
+    void openGLContextClosing();
     
     // Mode calculation
     void updateModeParameters(float frequency);
     
-    // OpenGL resources
-    juce::OpenGLContext openGLContext;
-    std::unique_ptr<juce::OpenGLShaderProgram> shader;
-    std::unique_ptr<juce::OpenGLShaderProgram::Uniform> uniformResolution;
-    std::unique_ptr<juce::OpenGLShaderProgram::Uniform> uniformTime;
-    std::unique_ptr<juce::OpenGLShaderProgram::Uniform> uniformFreq;
-    std::unique_ptr<juce::OpenGLShaderProgram::Uniform> uniformNodeEps;
-    std::unique_ptr<juce::OpenGLShaderProgram::Uniform> uniformMedium;
-    std::unique_ptr<juce::OpenGLShaderProgram::Uniform> uniformGeom;
-    std::unique_ptr<juce::OpenGLShaderProgram::Uniform> uniformMount;
-    std::unique_ptr<juce::OpenGLShaderProgram::Uniform> uniformAccuracy;
-    std::unique_ptr<juce::OpenGLShaderProgram::Uniform> uniformAccumTex;
-    std::unique_ptr<juce::OpenGLShaderProgram::Uniform> uniformAccumMix;
-    std::unique_ptr<juce::OpenGLShaderProgram::Uniform> uniformGrainAmt;
-    std::unique_ptr<juce::OpenGLShaderProgram::Uniform> uniformColorMode;
-    
-    // Mode uniforms
-    std::unique_ptr<juce::OpenGLShaderProgram::Uniform> uniformMode1_m;
-    std::unique_ptr<juce::OpenGLShaderProgram::Uniform> uniformMode1_n;
-    std::unique_ptr<juce::OpenGLShaderProgram::Uniform> uniformMode2_m;
-    std::unique_ptr<juce::OpenGLShaderProgram::Uniform> uniformMode2_n;
-    std::unique_ptr<juce::OpenGLShaderProgram::Uniform> uniformMode1_alpha;
-    std::unique_ptr<juce::OpenGLShaderProgram::Uniform> uniformMode2_alpha;
-    std::unique_ptr<juce::OpenGLShaderProgram::Uniform> uniformModeCrossfade;
-    std::unique_ptr<juce::OpenGLShaderProgram::Uniform> uniformMode1_weight;
-    std::unique_ptr<juce::OpenGLShaderProgram::Uniform> uniformMode2_weight;
-    
-    // Water mode uniforms
-    std::unique_ptr<juce::OpenGLShaderProgram::Uniform> uniformWater_n;
-    std::unique_ptr<juce::OpenGLShaderProgram::Uniform> uniformWater_k1;
-    std::unique_ptr<juce::OpenGLShaderProgram::Uniform> uniformWater_k2;
-    std::unique_ptr<juce::OpenGLShaderProgram::Uniform> uniformWater_amp1;
-    std::unique_ptr<juce::OpenGLShaderProgram::Uniform> uniformWater_amp2;
-    
-    // Vertex buffer
-    GLuint vbo = 0;
-    GLuint vao = 0;
-    
-    // Textures
-    GLuint accumTexture = 0;
     
     // Accumulation buffer
     juce::Image accumBuffer;

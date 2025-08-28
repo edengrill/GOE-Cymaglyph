@@ -3,9 +3,9 @@
 namespace ShaderPrograms {
 
 const char* kVertexShader = R"GLSL(
-#version 150 core
-in vec4 position;
-out vec2 texCoord;
+#version 120
+attribute vec4 position;
+varying vec2 texCoord;
 
 void main() {
     gl_Position = position;
@@ -14,7 +14,7 @@ void main() {
 )GLSL";
 
 const char* kFragmentCymaglyph = R"GLSL(
-#version 150 core
+#version 120
 
 uniform vec2  uRes;
 uniform float uTime;
@@ -41,8 +41,7 @@ uniform int   uWater_n;
 uniform float uWater_k1, uWater_k2;
 uniform float uWater_amp1, uWater_amp2;
 
-in vec2 texCoord;
-out vec4 fragColor;
+varying vec2 texCoord;
 
 const float PI = 3.14159265359;
 const float TAU = 6.28318530718;
@@ -161,7 +160,7 @@ void main() {
         finalColor = heatColorMap(finalColor.r);
     }
     
-    fragColor = vec4(finalColor, 1.0);
+    gl_FragColor = vec4(finalColor, 1.0);
 }
 )GLSL";
 

@@ -1,5 +1,6 @@
 #include "Visualizer.h"
 #include "ShaderPrograms.h"
+#include <cmath>
 
 CymaglyphVisualizer::CymaglyphVisualizer(juce::AudioProcessorValueTreeState& apvts)
     : parameters(apvts)
@@ -8,28 +9,172 @@ CymaglyphVisualizer::CymaglyphVisualizer(juce::AudioProcessorValueTreeState& apv
     squareModes = CymaglyphModes::getSquareModes();
     circularModes = CymaglyphModes::getCircularModes();
     
-    // Setup OpenGL
-    openGLContext.setRenderer(this);
-    openGLContext.attachTo(*this);
-    openGLContext.setContinuousRepainting(true);
+    // Make component opaque for faster rendering
+    setOpaque(true);
     
-    // Initialize accumulation buffer (will be resized properly later)
-    accumBuffer = juce::Image(juce::Image::ARGB, 1024, 1024, true);
+    // Initialize accumulation buffer
+    accumBuffer = juce::Image(juce::Image::ARGB, 512, 512, true);
+    accumBuffer.clear(accumBuffer.getBounds(), juce::Colours::black);
     
-    // Start timer for animation at 60 Hz
-    startTimerHz(60);
+    // Start timer for animation at 30 Hz (CPU rendering is slower)
+    startTimerHz(30);
 }
 
 CymaglyphVisualizer::~CymaglyphVisualizer()
 {
     stopTimer();
-    openGLContext.detach();
 }
 
 void CymaglyphVisualizer::paint(juce::Graphics& g)
 {
-    // OpenGL handles the rendering
-    g.fillAll(juce::Colours::black);
+    // Fill background with test pattern to verify painting is working
+    g.fillAll(juce::Colour::fromHSV(currentTime * 0.1f, 0.5f, 0.5f, 1.0f));
+    
+    // Get current parameters
+    const float freq = targetFrequency.load();
+    const int medium = static_cast<int>(parameters.getRawParameterValue("medium")->load());
+    const int geom = static_cast<int>(parameters.getRawParameterValue("geom")->load());
+    const float nodeEps = parameters.getRawParameterValue("nodeEps")->load();
+    const float grainAmt = parameters.getRawParameterValue("grainAmt")->load();
+    const int colorMode = static_cast<int>(parameters.getRawParameterValue("colorMode")->load());
+    
+    auto bounds = getLocalBounds();
+    float centerX = bounds.getCentreX();
+    float centerY = bounds.getCentreY();
+    float scale = juce::jmin(bounds.getWidth(), bounds.getHeight()) * 0.45f;
+    
+    // Update mode parameters based on frequency
+    updateModeParameters(freq);
+    
+    // Create cymatics pattern
+    if (medium == 2) // Water/Faraday
+    {
+        // Draw water ripples
+        for (int ring = 0; ring < 8; ring++)
+        {
+            float ringRadius = scale * (0.2f + ring * 0.1f);
+            float wave = std::sin(currentTime * 3.0f + ring * 0.5f);
+            float actualRadius = ringRadius + wave * 10.0f;
+            
+            float intensity = 1.0f - (ring * 0.12f);
+            auto color = colorMode == 1 ? 
+                juce::Colour::fromHSV(0.6f - ring * 0.1f, 0.8f, intensity, 1.0f) :
+                juce::Colour::fromFloatRGBA(intensity, intensity, intensity, 1.0f);
+            
+            g.setColour(color);
+            g.drawEllipse(centerX - actualRadius, centerY - actualRadius,
+                         actualRadius * 2, actualRadius * 2, 2.0f);
+            
+            // Add rotating spokes
+            int numSpokes = modeParams.water_n;
+            for (int spoke = 0; spoke < numSpokes; spoke++)
+            {
+                float angle = (spoke / float(numSpokes)) * 2.0f * 3.14159f + currentTime;
+                float x1 = centerX + actualRadius * 0.5f * std::cos(angle);
+                float y1 = centerY + actualRadius * 0.5f * std::sin(angle);
+                float x2 = centerX + actualRadius * std::cos(angle);
+                float y2 = centerY + actualRadius * std::sin(angle);
+                
+                g.drawLine(x1, y1, x2, y2, 1.0f);
+            }
+        }
+    }
+    else if (geom == 0) // Square
+    {
+        // Draw square plate modes
+        int gridSize = 32;
+        float cellSize = (scale * 2) / gridSize;
+        
+        for (int i = 0; i < gridSize; i++)
+        {
+            for (int j = 0; j < gridSize; j++)
+            {
+                float x = (i / float(gridSize - 1)) - 0.5f;
+                float y = (j / float(gridSize - 1)) - 0.5f;
+                
+                // Calculate mode amplitude
+                float u1 = std::sin(3.14159f * modeParams.mode1_m * (x + 0.5f)) *
+                          std::sin(3.14159f * modeParams.mode1_n * (y + 0.5f));
+                float u2 = std::sin(3.14159f * modeParams.mode2_m * (x + 0.5f)) *
+                          std::sin(3.14159f * modeParams.mode2_n * (y + 0.5f));
+                
+                float amplitude = juce::jlimit(-1.0f, 1.0f,
+                    (u1 * (1.0f - modeParams.modeCrossfade) + u2 * modeParams.modeCrossfade) *
+                    std::cos(currentTime * 5.0f));
+                
+                float intensity = std::abs(amplitude);
+                
+                if (intensity > nodeEps)
+                {
+                    auto color = colorMode == 1 ?
+                        juce::Colour::fromHSV(0.6f - intensity * 0.6f, 0.8f, intensity, 1.0f) :
+                        juce::Colour::fromFloatRGBA(intensity, intensity, intensity, 1.0f);
+                    
+                    float px = centerX + x * scale * 2;
+                    float py = centerY + y * scale * 2;
+                    
+                    g.setColour(color);
+                    g.fillEllipse(px - cellSize/2, py - cellSize/2, cellSize, cellSize);
+                }
+            }
+        }
+    }
+    else // Circle
+    {
+        // Draw circular membrane modes
+        int numRings = 20;
+        int numAngles = 64;
+        
+        for (int r = 0; r < numRings; r++)
+        {
+            float radius = (r / float(numRings)) * scale;
+            
+            g.setColour(juce::Colours::cyan.withAlpha(0.3f));
+            
+            juce::Path path;
+            bool firstPoint = true;
+            
+            for (int a = 0; a <= numAngles; a++)
+            {
+                float angle = (a / float(numAngles)) * 2.0f * 3.14159f;
+                
+                // Simple circular pattern based on mode
+                float modulation = std::sin(modeParams.mode1_n * angle + currentTime * 2.0f) *
+                                  std::sin(radius * 0.05f * modeParams.mode1_alpha);
+                
+                float actualRadius = radius + modulation * 20.0f;
+                float x = centerX + actualRadius * std::cos(angle);
+                float y = centerY + actualRadius * std::sin(angle);
+                
+                if (firstPoint)
+                {
+                    path.startNewSubPath(x, y);
+                    firstPoint = false;
+                }
+                else
+                {
+                    path.lineTo(x, y);
+                }
+            }
+            
+            g.strokePath(path, juce::PathStrokeType(1.0f));
+        }
+    }
+    
+    // Draw accumulation buffer with grain effect
+    if (grainAmt > 0.01f)
+    {
+        g.setOpacity(grainAmt);
+        g.drawImageAt(accumBuffer, 0, 0);
+    }
+    
+    // Update accumulation buffer
+    updateAccumulationBuffer();
+    
+    // Draw frequency text
+    g.setColour(juce::Colours::white.withAlpha(0.5f));
+    g.setFont(14.0f);
+    g.drawText(juce::String(freq, 1) + " Hz", bounds.removeFromTop(20), juce::Justification::centred);
 }
 
 void CymaglyphVisualizer::resized()
@@ -45,244 +190,16 @@ void CymaglyphVisualizer::resized()
     }
 }
 
-void CymaglyphVisualizer::newOpenGLContextCreated()
-{
-    using namespace juce::gl;
-    
-    createShaders();
-    createQuad();
-    
-    // Create accumulation texture
-    glGenTextures(1, &accumTexture);
-    glBindTexture(GL_TEXTURE_2D, accumTexture);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-}
-
-void CymaglyphVisualizer::openGLContextClosing()
-{
-    using namespace juce::gl;
-    
-    shader.reset();
-    
-    if (vbo != 0) {
-        glDeleteBuffers(1, &vbo);
-        vbo = 0;
-    }
-    
-    if (vao != 0) {
-        glDeleteVertexArrays(1, &vao);
-        vao = 0;
-    }
-    
-    if (accumTexture != 0) {
-        glDeleteTextures(1, &accumTexture);
-        accumTexture = 0;
-    }
-}
-
-void CymaglyphVisualizer::renderOpenGL()
-{
-    using namespace juce::gl;
-    
-    const auto bounds = getLocalBounds();
-    glViewport(0, 0, bounds.getWidth(), bounds.getHeight());
-    
-    // Clear
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    
-    if (shader == nullptr || !shader->getUniformIDFromName("uRes"))
-        return;
-    
-    shader->use();
-    
-    // Update uniforms
-    updateUniforms();
-    
-    // Upload accumulation texture if needed
-    if (accumBufferDirty.exchange(false))
-    {
-        uploadAccumulationTexture();
-    }
-    
-    // Bind accumulation texture
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, accumTexture);
-    
-    // Draw quad
-    glBindVertexArray(vao);
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-    glBindVertexArray(0);
-    
-    // Update accumulation buffer (on message thread via timer)
-    // This is handled in timerCallback()
-    
-    // FPS counter
-    frameCounter++;
-    const double currentTimeMs = juce::Time::getMillisecondCounterHiRes();
-    if (currentTimeMs - lastFpsTime > 1000.0)
-    {
-        currentFps = frameCounter * 1000.0f / (currentTimeMs - lastFpsTime);
-        frameCounter = 0;
-        lastFpsTime = currentTimeMs;
-    }
-}
-
 void CymaglyphVisualizer::timerCallback()
 {
     // Update time
-    currentTime += 1.0f / 60.0f;
+    currentTime += 1.0f / 30.0f;
     
     // Update mode parameters based on frequency
     updateModeParameters(targetFrequency.load());
     
-    // Update accumulation buffer
-    updateAccumulationBuffer();
-    
     // Trigger repaint
-    openGLContext.triggerRepaint();
-}
-
-void CymaglyphVisualizer::createShaders()
-{
-    shader.reset(new juce::OpenGLShaderProgram(openGLContext));
-    
-    if (!shader->addVertexShader(ShaderPrograms::kVertexShader))
-    {
-        DBG("Vertex shader compile error: " << shader->getLastError());
-        return;
-    }
-    
-    if (!shader->addFragmentShader(ShaderPrograms::kFragmentCymaglyph))
-    {
-        DBG("Fragment shader compile error: " << shader->getLastError());
-        return;
-    }
-    
-    if (!shader->link())
-    {
-        DBG("Shader link error: " << shader->getLastError());
-        return;
-    }
-    
-    shader->use();
-    
-    // Cache uniform locations
-    uniformResolution.reset(new juce::OpenGLShaderProgram::Uniform(*shader, "uRes"));
-    uniformTime.reset(new juce::OpenGLShaderProgram::Uniform(*shader, "uTime"));
-    uniformFreq.reset(new juce::OpenGLShaderProgram::Uniform(*shader, "uFreq"));
-    uniformNodeEps.reset(new juce::OpenGLShaderProgram::Uniform(*shader, "uNodeEps"));
-    uniformMedium.reset(new juce::OpenGLShaderProgram::Uniform(*shader, "uMedium"));
-    uniformGeom.reset(new juce::OpenGLShaderProgram::Uniform(*shader, "uGeom"));
-    uniformMount.reset(new juce::OpenGLShaderProgram::Uniform(*shader, "uMount"));
-    uniformAccuracy.reset(new juce::OpenGLShaderProgram::Uniform(*shader, "uAccuracy"));
-    uniformAccumTex.reset(new juce::OpenGLShaderProgram::Uniform(*shader, "uAccum"));
-    uniformAccumMix.reset(new juce::OpenGLShaderProgram::Uniform(*shader, "uAccumMix"));
-    uniformGrainAmt.reset(new juce::OpenGLShaderProgram::Uniform(*shader, "uGrainAmt"));
-    uniformColorMode.reset(new juce::OpenGLShaderProgram::Uniform(*shader, "uColorMode"));
-    
-    // Mode uniforms
-    uniformMode1_m.reset(new juce::OpenGLShaderProgram::Uniform(*shader, "uMode1_m"));
-    uniformMode1_n.reset(new juce::OpenGLShaderProgram::Uniform(*shader, "uMode1_n"));
-    uniformMode2_m.reset(new juce::OpenGLShaderProgram::Uniform(*shader, "uMode2_m"));
-    uniformMode2_n.reset(new juce::OpenGLShaderProgram::Uniform(*shader, "uMode2_n"));
-    uniformMode1_alpha.reset(new juce::OpenGLShaderProgram::Uniform(*shader, "uMode1_alpha"));
-    uniformMode2_alpha.reset(new juce::OpenGLShaderProgram::Uniform(*shader, "uMode2_alpha"));
-    uniformModeCrossfade.reset(new juce::OpenGLShaderProgram::Uniform(*shader, "uModeCrossfade"));
-    uniformMode1_weight.reset(new juce::OpenGLShaderProgram::Uniform(*shader, "uMode1_weight"));
-    uniformMode2_weight.reset(new juce::OpenGLShaderProgram::Uniform(*shader, "uMode2_weight"));
-    
-    // Water uniforms
-    uniformWater_n.reset(new juce::OpenGLShaderProgram::Uniform(*shader, "uWater_n"));
-    uniformWater_k1.reset(new juce::OpenGLShaderProgram::Uniform(*shader, "uWater_k1"));
-    uniformWater_k2.reset(new juce::OpenGLShaderProgram::Uniform(*shader, "uWater_k2"));
-    uniformWater_amp1.reset(new juce::OpenGLShaderProgram::Uniform(*shader, "uWater_amp1"));
-    uniformWater_amp2.reset(new juce::OpenGLShaderProgram::Uniform(*shader, "uWater_amp2"));
-}
-
-void CymaglyphVisualizer::createQuad()
-{
-    using namespace juce::gl;
-    
-    // Full screen quad vertices
-    const GLfloat vertices[] = {
-        -1.0f, -1.0f, 0.0f,
-         1.0f, -1.0f, 0.0f,
-        -1.0f,  1.0f, 0.0f,
-         1.0f,  1.0f, 0.0f
-    };
-    
-    glGenVertexArrays(1, &vao);
-    glBindVertexArray(vao);
-    
-    glGenBuffers(1, &vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-    
-    const GLuint positionAttribute = 0;
-    glEnableVertexAttribArray(positionAttribute);
-    glVertexAttribPointer(positionAttribute, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), nullptr);
-    
-    glBindVertexArray(0);
-}
-
-void CymaglyphVisualizer::updateUniforms()
-{
-    if (!shader) return;
-    
-    // Resolution
-    if (uniformResolution != nullptr)
-        uniformResolution->set((GLfloat)getWidth(), (GLfloat)getHeight());
-    
-    // Time
-    if (uniformTime != nullptr)
-        uniformTime->set(currentTime);
-    
-    // Frequency
-    if (uniformFreq != nullptr)
-        uniformFreq->set(targetFrequency.load());
-    
-    // Visual parameters
-    const float nodeEps = parameters.getRawParameterValue("nodeEps")->load();
-    const int medium = static_cast<int>(parameters.getRawParameterValue("medium")->load());
-    const int geom = static_cast<int>(parameters.getRawParameterValue("geom")->load());
-    const int mount = static_cast<int>(parameters.getRawParameterValue("mount")->load());
-    const float accuracy = parameters.getRawParameterValue("accuracy")->load();
-    const float grainAmt = parameters.getRawParameterValue("grainAmt")->load();
-    const int colorMode = static_cast<int>(parameters.getRawParameterValue("colorMode")->load());
-    
-    if (uniformNodeEps != nullptr) uniformNodeEps->set(nodeEps);
-    if (uniformMedium != nullptr) uniformMedium->set(medium);
-    if (uniformGeom != nullptr) uniformGeom->set(geom);
-    if (uniformMount != nullptr) uniformMount->set(mount);
-    if (uniformAccuracy != nullptr) uniformAccuracy->set(accuracy);
-    if (uniformGrainAmt != nullptr) uniformGrainAmt->set(grainAmt);
-    if (uniformColorMode != nullptr) uniformColorMode->set(colorMode);
-    
-    // Accumulation mixing
-    if (uniformAccumMix != nullptr) uniformAccumMix->set(accumAlpha);
-    if (uniformAccumTex != nullptr) uniformAccumTex->set(0); // Texture unit 0
-    
-    // Mode-specific uniforms
-    if (uniformMode1_m != nullptr) uniformMode1_m->set(modeParams.mode1_m);
-    if (uniformMode1_n != nullptr) uniformMode1_n->set(modeParams.mode1_n);
-    if (uniformMode2_m != nullptr) uniformMode2_m->set(modeParams.mode2_m);
-    if (uniformMode2_n != nullptr) uniformMode2_n->set(modeParams.mode2_n);
-    if (uniformMode1_alpha != nullptr) uniformMode1_alpha->set(modeParams.mode1_alpha);
-    if (uniformMode2_alpha != nullptr) uniformMode2_alpha->set(modeParams.mode2_alpha);
-    if (uniformModeCrossfade != nullptr) uniformModeCrossfade->set(modeParams.modeCrossfade);
-    if (uniformMode1_weight != nullptr) uniformMode1_weight->set(modeParams.mode1_weight);
-    if (uniformMode2_weight != nullptr) uniformMode2_weight->set(modeParams.mode2_weight);
-    
-    // Water mode uniforms
-    if (uniformWater_n != nullptr) uniformWater_n->set(modeParams.water_n);
-    if (uniformWater_k1 != nullptr) uniformWater_k1->set(modeParams.water_k1);
-    if (uniformWater_k2 != nullptr) uniformWater_k2->set(modeParams.water_k2);
-    if (uniformWater_amp1 != nullptr) uniformWater_amp1->set(modeParams.water_amp1);
-    if (uniformWater_amp2 != nullptr) uniformWater_amp2->set(modeParams.water_amp2);
+    repaint();
 }
 
 void CymaglyphVisualizer::updateModeParameters(float frequency)
@@ -355,23 +272,6 @@ void CymaglyphVisualizer::updateAccumulationBuffer()
     accumBufferDirty = true;
 }
 
-void CymaglyphVisualizer::uploadAccumulationTexture()
-{
-    using namespace juce::gl;
-    
-    juce::ScopedLock lock(accumBufferLock);
-    
-    if (accumTexture != 0 && accumBuffer.isValid())
-    {
-        glBindTexture(GL_TEXTURE_2D, accumTexture);
-        
-        juce::Image::BitmapData bitmap(accumBuffer, juce::Image::BitmapData::readOnly);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8,
-                    bitmap.width, bitmap.height, 0,
-                    GL_BGRA, GL_UNSIGNED_BYTE, bitmap.data);
-    }
-}
-
 void CymaglyphVisualizer::resetAccumulation()
 {
     juce::ScopedLock lock(accumBufferLock);
@@ -391,3 +291,12 @@ void CymaglyphVisualizer::saveImage(const juce::File& file)
         pngFormat.writeImageToStream(accumBuffer, stream);
     }
 }
+
+// Stub functions for removed OpenGL methods
+void CymaglyphVisualizer::newOpenGLContextCreated() {}
+void CymaglyphVisualizer::renderOpenGL() {}
+void CymaglyphVisualizer::openGLContextClosing() {}
+void CymaglyphVisualizer::createShaders() {}
+void CymaglyphVisualizer::createQuad() {}
+void CymaglyphVisualizer::updateUniforms() {}
+void CymaglyphVisualizer::uploadAccumulationTexture() {}
