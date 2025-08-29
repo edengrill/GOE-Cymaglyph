@@ -13,15 +13,15 @@ public:
     enum Mode
     {
         Crystalline = 0,
-        AnalogBeast,
-        Resonator,
-        Morpheus,
-        Vox,
-        Texture,
-        Spectral,
-        DX7,
-        Living,
-        Nebula,
+        SilkPad,
+        VelvetKeys,
+        LiquidBass,
+        VintageBrass,
+        CloudNine,
+        GoldenLead,
+        DreamPluck,
+        AmbientWash,
+        ProphetPoly,
         NumModes
     };
     
@@ -29,7 +29,7 @@ public:
     {
         juce::String name;
         juce::String description;
-        // Color palette
+        // Color palette - keeping exact same colors as before
         juce::Colour primaryColor;
         juce::Colour secondaryColor;
         juce::Colour accentColor;
@@ -48,23 +48,125 @@ public:
     // Reset internal state
     void reset();
     
-private:
-    // Advanced synthesis modes
-    float generateCrystalline(float phase, float frequency);
-    float generateAnalogBeast(float phase, float frequency);
-    float generateResonator(float phase, float frequency);
-    float generateMorpheus(float phase, float frequency);
-    float generateVox(float phase, float frequency);
-    float generateTexture(float phase, float frequency);
-    float generateSpectral(float phase, float frequency);
-    float generateDX7(float phase, float frequency);
-    float generateLiving(float phase, float frequency);
-    float generateNebula(float phase, float frequency);
+    // Set velocity for expression
+    void setVelocity(float vel) { velocity = vel; }
     
-    // Helper synthesis components
+private:
+    // Synthesis modes
+    float generateCrystalline(float phase, float frequency);
+    float generateSilkPad(float phase, float frequency);
+    float generateVelvetKeys(float phase, float frequency);
+    float generateLiquidBass(float phase, float frequency);
+    float generateVintageBrass(float phase, float frequency);
+    float generateCloudNine(float phase, float frequency);
+    float generateGoldenLead(float phase, float frequency);
+    float generateDreamPluck(float phase, float frequency);
+    float generateAmbientWash(float phase, float frequency);
+    float generateProphetPoly(float phase, float frequency);
+    
+    // Professional synthesis components
+    struct Layer {
+        float phase = 0.0f;
+        float frequency = 1.0f;
+        float amplitude = 1.0f;
+        float detune = 0.0f;
+        float pan = 0.0f;
+    };
+    
+    struct Filter {
+        // State variable filter
+        float low = 0, band = 0, high = 0, notch = 0;
+        float f = 0.1f, q = 1.0f;
+        
+        // Moog ladder filter state
+        float stage[4] = {0, 0, 0, 0};
+        float delay[4] = {0, 0, 0, 0};
+        float feedback = 0.0f;
+        
+        void setStateVariable(float frequency, float resonance, float sampleRate);
+        float processLowpass(float input);
+        float processBandpass(float input);
+        float processHighpass(float input);
+        float processNotch(float input);
+        
+        void setMoogLadder(float frequency, float resonance, float sampleRate);
+        float processMoogLadder(float input);
+    };
+    
+    struct Envelope {
+        float attack = 0.01f;
+        float decay = 0.1f;
+        float sustain = 0.7f;
+        float release = 0.5f;
+        float level = 0.0f;
+        float state = 0.0f;
+        
+        float process(bool gate);
+    };
+    
+    struct LFO {
+        float phase = 0.0f;
+        float frequency = 1.0f;
+        float depth = 1.0f;
+        
+        float process();
+    };
+    
+    struct Chorus {
+        static constexpr int MAX_DELAY = 4096;
+        float buffer[MAX_DELAY] = {0};
+        int writeIndex = 0;
+        float rate = 0.5f;
+        float depth = 0.3f;
+        float mix = 0.3f;
+        float lfoPhase = 0.0f;
+        
+        float process(float input);
+    };
+    
+    struct Reverb {
+        static constexpr int NUM_COMBS = 8;
+        static constexpr int NUM_ALLPASS = 4;
+        
+        struct CombFilter {
+            std::vector<float> buffer;
+            int index = 0;
+            float feedback = 0.8f;
+            float damp = 0.2f;
+            float lastOut = 0.0f;
+        };
+        
+        struct AllpassFilter {
+            std::vector<float> buffer;
+            int index = 0;
+            float feedback = 0.5f;
+        };
+        
+        CombFilter combs[NUM_COMBS];
+        AllpassFilter allpasses[NUM_ALLPASS];
+        float roomSize = 0.5f;
+        float damping = 0.5f;
+        float wetLevel = 0.3f;
+        
+        void initialize();
+        float process(float input);
+    };
+    
+    struct DelayLine {
+        std::vector<float> buffer;
+        int writeIndex = 0;
+        float feedback = 0.4f;
+        float time = 0.25f; // in seconds
+        float mix = 0.2f;
+        
+        void resize(int size);
+        float process(float input);
+    };
+    
+    // Wavetable oscillator for high-quality waveforms
     struct WavetableOscillator {
-        static constexpr int TABLE_SIZE = 512;
-        static constexpr int NUM_TABLES = 8;
+        static constexpr int TABLE_SIZE = 2048;
+        static constexpr int NUM_TABLES = 16;
         std::array<std::array<float, TABLE_SIZE>, NUM_TABLES> tables;
         float morphPosition = 0.0f;
         
@@ -72,86 +174,84 @@ private:
         float generate(float phase);
     };
     
-    struct DelayLine {
-        std::vector<float> buffer;
-        int writeIndex = 0;
-        float feedback = 0.995f;
-        
-        void resize(int size);
-        float process(float input);
-    };
-    
-    struct StateVariableFilter {
-        float low = 0, band = 0, high = 0;
-        float f = 0.1f, q = 1.0f;
-        
-        void setParams(float frequency, float resonance, float sampleRate);
-        float processLowpass(float input);
-        float processBandpass(float input);
-        float processHighpass(float input);
-    };
-    
+    // FM operator for electric piano sounds
     struct FMOperator {
         float phase = 0.0f;
         float frequency = 1.0f;
         float amplitude = 1.0f;
+        float feedback = 0.0f;
+        float lastOutput = 0.0f;
         
         float generate(float modulation = 0.0f);
     };
     
+    // Additive synthesis for brass
+    struct Harmonic {
+        float amplitude = 0.0f;
+        float frequency = 1.0f;
+        float phase = 0.0f;
+    };
+    
+    // Granular engine
     struct Grain {
         float position = 0.0f;
         float duration = 0.1f;
         float pitch = 1.0f;
         float amplitude = 0.0f;
         float envelope = 0.0f;
+        float pan = 0.0f;
         bool active = false;
     };
     
-    // Synthesis components
-    WavetableOscillator wavetable;
-    std::array<DelayLine, 4> delayLines;
-    std::array<StateVariableFilter, 5> filters;
-    std::array<FMOperator, 6> fmOperators;
-    std::array<Grain, 16> grains;
-    std::vector<float> grainBuffer;
-    
-    // Virtual analog components
-    float analogDrift = 0.0f;
-    float analogPhase2 = 0.0f;
-    float analogPhase3 = 0.0f;
-    float subPhase = 0.0f;
-    
-    // Chaos synthesis state
-    float chaosX = 0.1f;
-    float chaosY = 0.0f;
-    float chaosZ = 0.0f;
-    
-    // Formant frequencies for vowels
-    static constexpr float formantFreqs[5][5] = {
-        {730, 1090, 2440, 3400, 4200},  // A
-        {270, 2290, 3010, 3500, 4200},  // E
-        {300, 870, 2240, 3100, 4200},   // I
-        {570, 840, 2410, 3400, 4200},   // O
-        {440, 1020, 2240, 2900, 4200}   // U
+    // Physical modeling components
+    struct KarplusStrong {
+        std::vector<float> delayLine;
+        int writeIndex = 0;
+        float feedback = 0.99f;
+        float damping = 0.5f;
+        float lastSample = 0.0f;
+        
+        void setFrequency(float freq, float sampleRate);
+        float process(float excitation);
     };
+    
+    // Synthesis state
+    std::array<Layer, 4> layers;
+    std::array<Filter, 4> filters;
+    std::array<Envelope, 4> envelopes;
+    std::array<LFO, 4> lfos;
+    std::array<FMOperator, 6> fmOperators;
+    std::array<Harmonic, 32> harmonics;
+    std::array<Grain, 32> grains;
+    std::array<KarplusStrong, 4> strings;
+    
+    WavetableOscillator wavetable;
+    Chorus chorus;
+    Reverb reverb;
+    DelayLine delay;
+    
+    // Grain buffer for Cloud Nine
+    std::vector<float> grainBuffer;
+    int grainCounter = 0;
+    
+    // State tracking
+    float velocity = 0.7f;
+    float lastFrequency = 440.0f;
+    float currentPhase = 0.0f;
+    int sampleCounter = 0;
     
     // Random number generator
     std::mt19937 rng;
     std::uniform_real_distribution<float> randomDist;
     
-    // Internal state
-    float lastFrequency = 440.0f;
-    int grainCounter = 0;
-    float morphX = 0.0f;
-    float morphY = 0.0f;
-    int currentVowel = 0;
-    
     // Helper functions
     float softClip(float input);
+    float hardClip(float input);
+    float analogSaturate(float input);
     float randomFloat();
-    void updateMorphPosition(float frequency);
     void triggerGrain();
+    void updateHarmonics(float frequency, int mode);
+    float mixLayers(float dry, float wet, float mix);
     
     // Mode information table
     static const std::array<ModeInfo, NumModes> modeInfoTable;
