@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(GOECymaglyph VERSION 0.1 LANGUAGES CXX)
+project(SandWizard VERSION 0.1 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -15,7 +15,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(JUCE)
 
 # Add the plugin target
-juce_add_plugin(GOECymaglyph
+juce_add_plugin(SandWizard
     COMPANY_NAME "Garden of Ed"
     COMPANY_WEBSITE "https://gardenofed.com"
     COMPANY_EMAIL "info@gardenofed.com"
@@ -27,10 +27,10 @@ juce_add_plugin(GOECymaglyph
     VST3_CATEGORIES "Instrument" "Fx"
     AU_MAIN_TYPE "kAudioUnitType_MusicDevice"
     FORMATS VST3 AU AUv3
-    PRODUCT_NAME "GOE Cymaglyph"
+    PRODUCT_NAME "Sand Wizard"
     PLUGIN_MANUFACTURER_CODE "GoEd"
-    PLUGIN_CODE "GoCy"
-    BUNDLE_ID "com.gardenofed.goecymaglyph"
+    PLUGIN_CODE "SaWz"
+    BUNDLE_ID "com.gardenofed.sandwizard"
     MICROPHONE_PERMISSION_ENABLED FALSE
     CAMERA_PERMISSION_ENABLED FALSE
     REQUIRES_FULL_SCREEN FALSE
@@ -39,7 +39,7 @@ juce_add_plugin(GOECymaglyph
 )
 
 # Add source files
-target_sources(GOECymaglyph PRIVATE
+target_sources(SandWizard PRIVATE
     Source/PluginProcessor.h
     Source/PluginProcessor.cpp
     Source/PluginEditor.h
@@ -57,7 +57,7 @@ target_sources(GOECymaglyph PRIVATE
 )
 
 # Add JUCE module paths
-target_include_directories(GOECymaglyph PRIVATE
+target_include_directories(SandWizard PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/Source
     ${CMAKE_CURRENT_BINARY_DIR}
 )
@@ -69,7 +69,7 @@ if(APPLE)
 endif()
 
 # Compile definitions
-target_compile_definitions(GOECymaglyph
+target_compile_definitions(SandWizard
     PUBLIC
         JUCE_WEB_BROWSER=0
         JUCE_USE_CURL=0
@@ -82,7 +82,7 @@ target_compile_definitions(GOECymaglyph
 )
 
 # Link libraries
-target_link_libraries(GOECymaglyph
+target_link_libraries(SandWizard
     PRIVATE
         juce::juce_audio_utils
         juce::juce_dsp
@@ -95,16 +95,16 @@ target_link_libraries(GOECymaglyph
 
 # Set warning levels
 if(MSVC)
-    target_compile_options(GOECymaglyph PRIVATE /W4)
+    target_compile_options(SandWizard PRIVATE /W4)
 else()
-    target_compile_options(GOECymaglyph PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(SandWizard PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
 # Copy presets
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Presets")
-    add_custom_command(TARGET GOECymaglyph POST_BUILD
+    add_custom_command(TARGET SandWizard POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${CMAKE_CURRENT_SOURCE_DIR}/Presets"
-        "$<TARGET_FILE_DIR:GOECymaglyph>/Presets"
+        "$<TARGET_FILE_DIR:SandWizard>/Presets"
     )
 endif()

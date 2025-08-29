@@ -9,28 +9,28 @@ const std::array<SynthEngine::ModeInfo, SynthEngine::NumModes> SynthEngine::mode
     {"Silk Pad", "Lush analog pad",
         juce::Colour(255, 140, 0), juce::Colour(255, 215, 0), juce::Colour(255, 69, 0)}, // Orange to Yellow
     
-    {"Velvet Keys", "Electric piano",
+    {"Nebula Drift", "Spectral clouds",
         juce::Colour(0, 255, 255), juce::Colour(240, 248, 255), juce::Colour(175, 238, 238)}, // Cyan to White
     
     {"Liquid Bass", "Deep sub bass",
         juce::Colour(128, 0, 128), juce::Colour(255, 215, 0), juce::Colour(238, 130, 238)}, // Purple to Gold
     
-    {"Vintage Brass", "Analog brass",
+    {"Plasma Core", "Metallic morph",
         juce::Colour(0, 255, 0), juce::Colour(0, 128, 128), juce::Colour(0, 255, 127)}, // Green to Teal
     
     {"Cloud Nine", "Ethereal texture",
         juce::Colour(255, 0, 0), juce::Colour(255, 140, 0), juce::Colour(255, 69, 0)}, // Red to Amber
     
-    {"Golden Lead", "Cutting lead",
+    {"Quantum Flux", "Glitch lead",
         juce::Colour(255, 0, 0), juce::Colour(0, 255, 0), juce::Colour(0, 0, 255)}, // Rainbow (RGB)
     
-    {"Dream Pluck", "Lush pluck",
+    {"Crystal Matrix", "Resonant glass",
         juce::Colour(192, 192, 192), juce::Colour(0, 191, 255), juce::Colour(224, 224, 224)}, // Silver to Blue
     
-    {"Ambient Wash", "Ocean texture",
+    {"Solar Wind", "Space breath",
         juce::Colour(139, 69, 19), juce::Colour(34, 139, 34), juce::Colour(107, 142, 35)}, // Brown to Green
     
-    {"Prophet Poly", "Vintage poly",
+    {"Void Resonance", "Deep space",
         juce::Colour(255, 0, 255), juce::Colour(138, 43, 226), juce::Colour(255, 105, 180)} // Magenta to Violet
 }};
 
@@ -118,14 +118,14 @@ float SynthEngine::generateSample(float phase, float frequency, int modeIndex)
     {
         case Crystalline:    output = generateCrystalline(phase, frequency); break;
         case SilkPad:        output = generateSilkPad(phase, frequency); break;
-        case VelvetKeys:     output = generateVelvetKeys(phase, frequency); break;
+        case NebulaDrift:    output = generateNebulaDrift(phase, frequency); break;
         case LiquidBass:     output = generateLiquidBass(phase, frequency); break;
-        case VintageBrass:   output = generateVintageBrass(phase, frequency); break;
+        case PlasmaCore:     output = generatePlasmaCore(phase, frequency); break;
         case CloudNine:      output = generateCloudNine(phase, frequency); break;
-        case GoldenLead:     output = generateGoldenLead(phase, frequency); break;
-        case DreamPluck:     output = generateDreamPluck(phase, frequency); break;
-        case AmbientWash:    output = generateAmbientWash(phase, frequency); break;
-        case ProphetPoly:    output = generateProphetPoly(phase, frequency); break;
+        case QuantumFlux:    output = generateQuantumFlux(phase, frequency); break;
+        case CrystalMatrix:  output = generateCrystalMatrix(phase, frequency); break;
+        case SolarWind:      output = generateSolarWind(phase, frequency); break;
+        case VoidResonance:  output = generateVoidResonance(phase, frequency); break;
         default:             output = 0.0f; break;
     }
     
@@ -199,50 +199,69 @@ float SynthEngine::generateSilkPad(float phase, float frequency)
     return output * 0.4f * velocity;
 }
 
-float SynthEngine::generateVelvetKeys(float phase, float frequency)
+float SynthEngine::generateNebulaDrift(float phase, float frequency)
 {
-    // DX7-style FM synthesis for electric piano
+    // Evolving spectral clouds with harmonic dispersion
     
-    // Update FM operator phases
-    for (size_t i = 0; i < 6; i++)
+    // Layer 1: Spectral-morphed wavetable with phase dispersion
+    float wavetableOut = wavetable.generate(phase);
+    
+    // Apply spectral warping
+    float warpAmount = lfos[0].process() * 0.5f + 0.5f;
+    wavetableOut = spectralWarp(wavetableOut, warpAmount * 2.0f);
+    
+    // Layer 2: Sub-harmonic drone
+    float subPhase = phase * 0.5f;
+    float subOsc = std::sin(subPhase * 2.0f * M_PI);
+    subOsc = analogSaturate(subOsc * 2.0f) * 0.3f;
+    
+    // Layer 3: High frequency shimmer particles
+    float shimmer = 0.0f;
+    for (int i = 5; i < 12; i++)
     {
-        fmOperators[i].phase += (frequency * fmOperators[i].frequency) / 44100.0f;
-        if (fmOperators[i].phase >= 1.0f) fmOperators[i].phase -= 1.0f;
+        float harmPhase = phase * float(i);
+        float harmAmp = 1.0f / float(i * i);
+        shimmer += std::sin(harmPhase * 2.0f * M_PI) * harmAmp;
+    }
+    shimmer *= lfos[1].process() * 0.15f;
+    
+    // Apply Shepard tone morphing
+    float shepardPos = lfos[2].process() * 0.5f + 0.5f;
+    float harmonicArray[32];
+    for (int i = 0; i < 32; i++)
+    {
+        harmonicArray[i] = harmonics[i].amplitude;
+    }
+    applyShepardTone(harmonicArray, 32, shepardPos);
+    
+    // Mix spectral components
+    float spectralMix = 0.0f;
+    for (int i = 0; i < 8; i++)
+    {
+        float harmPhase = phase * (i + 1);
+        spectralMix += std::sin(harmPhase * 2.0f * M_PI) * harmonicArray[i];
     }
     
-    // Algorithm 5 - Classic EP
-    float mod1 = fmOperators[1].generate(0.0f) * 14.0f * velocity;
-    float carrier1 = fmOperators[0].generate(mod1);
+    float output = wavetableOut * 0.4f + subOsc + shimmer + spectralMix * 0.2f;
     
-    float mod2 = fmOperators[3].generate(0.0f) * 1.0f;
-    float carrier2 = fmOperators[2].generate(mod2);
+    // Formant shifting filter
+    float formantFreq = frequency * (2.0f + lfos[3].process());
+    filters[0].setStateVariable(formantFreq, 3.0f, 44100.0f);
+    output = filters[0].processBandpass(output);
     
-    float bell = fmOperators[4].generate(0.0f) * 0.3f; // Bell component
+    // Multi-tap granular delay
+    delay.time = 0.1f + lfos[0].process() * 0.05f;
+    delay.feedback = 0.7f;
+    delay.mix = 0.4f;
+    output = delay.process(output);
     
-    float output = (carrier1 * 0.6f + carrier2 * 0.3f + bell) * velocity;
+    // Infinite reverb
+    reverb.roomSize = 0.95f;
+    reverb.damping = 0.3f;
+    reverb.wetLevel = 0.5f;
+    output = output * 0.5f + reverb.process(output) * 0.5f;
     
-    // Tine resonance simulation
-    filters[0].setStateVariable(frequency * 2.1f, 8.0f, 44100.0f);
-    float resonance = filters[0].processBandpass(output) * 0.2f;
-    
-    output += resonance;
-    
-    // Vintage chorus for classic EP sound
-    chorus.rate = 0.5f;
-    chorus.depth = 0.2f;
-    chorus.mix = 0.3f;
-    output = chorus.process(output);
-    
-    // Cabinet simulation
-    filters[1].setStateVariable(4000.0f, 0.7f, 44100.0f);
-    output = filters[1].processLowpass(output);
-    
-    // Room reverb
-    reverb.roomSize = 0.3f;
-    reverb.wetLevel = 0.2f;
-    output = output * 0.8f + reverb.process(output) * 0.2f;
-    
-    return analogSaturate(output * 0.5f);
+    return softClip(output * 0.6f);
 }
 
 float SynthEngine::generateLiquidBass(float phase, float frequency)
@@ -285,51 +304,72 @@ float SynthEngine::generateLiquidBass(float phase, float frequency)
     return output * 0.6f;
 }
 
-float SynthEngine::generateVintageBrass(float phase, float frequency)
+float SynthEngine::generatePlasmaCore(float phase, float frequency)
 {
-    // Additive synthesis with dynamic formants
-    updateHarmonics(frequency, VintageBrass);
+    // Aggressive morphing metallic textures with harmonic distortion
     
-    float output = 0.0f;
+    // Layer 1: Dual wavetables with FM cross-modulation
+    float wt1 = wavetable.generate(phase);
+    float wt2Phase = phase * 1.01f; // Slight detune
+    float wt2 = wavetable.generate(wt2Phase);
     
-    // Generate harmonics with brass-like envelope
-    for (int h = 0; h < 16; h++)
+    // FM cross-modulation
+    float modDepth = 0.5f + lfos[0].process() * 0.3f;
+    float fm1 = std::sin((phase + wt2 * modDepth) * 2.0f * M_PI);
+    float fm2 = std::sin((wt2Phase + wt1 * modDepth) * 2.0f * M_PI);
+    
+    // Layer 2: Harmonic saturator with odd/even emphasis
+    float oddHarmonics = 0.0f;
+    float evenHarmonics = 0.0f;
+    
+    for (int i = 1; i <= 9; i += 2) // Odd harmonics
     {
-        harmonics[h].phase += (frequency * (h + 1)) / 44100.0f;
-        if (harmonics[h].phase >= 1.0f) harmonics[h].phase -= 1.0f;
-        
-        // Brass harmonics emphasis
-        float amp = 1.0f / (h + 1);
-        if (h == 1) amp *= 1.5f;  // Emphasize 2nd harmonic
-        if (h == 2) amp *= 1.3f;  // Emphasize 3rd harmonic
-        if (h == 4) amp *= 1.2f;  // Emphasize 5th harmonic
-        
-        // Apply breath control simulation
-        amp *= (0.7f + velocity * 0.3f);
-        
-        output += std::sin(2.0f * juce::MathConstants<float>::pi * harmonics[h].phase) * amp;
+        float harmPhase = phase * float(i);
+        oddHarmonics += std::sin(harmPhase * 2.0f * M_PI) / float(i);
     }
     
-    output *= 0.15f;
+    for (int i = 2; i <= 8; i += 2) // Even harmonics
+    {
+        float harmPhase = phase * float(i);
+        evenHarmonics += std::sin(harmPhase * 2.0f * M_PI) / float(i * 2);
+    }
     
-    // Formant filter for brass character
-    filters[0].setStateVariable(1500.0f, 2.0f, 44100.0f);
-    output = filters[0].processBandpass(output);
+    // Morph between odd and even harmonics
+    float morphPos = lfos[1].process() * 0.5f + 0.5f;
+    float harmonicMix = oddHarmonics * (1.0f - morphPos) + evenHarmonics * morphPos;
     
-    // Dynamic brightness based on velocity
-    float brightness = 3000.0f + velocity * 2000.0f;
-    filters[1].setStateVariable(brightness, 0.7f, 44100.0f);
-    output = filters[1].processLowpass(output);
+    // Layer 3: Resonant feedback network
+    static float feedbackBuffer = 0.0f;
+    float resonantSignal = fm1 + feedbackBuffer * 0.3f;
+    filters[0].setMoogLadder(frequency * 2.5f, 3.5f, 44100.0f);
+    resonantSignal = filters[0].processMoogLadder(resonantSignal);
+    feedbackBuffer = resonantSignal * 0.7f;
     
-    // Add growl with soft saturation
-    output = analogSaturate(output * (1.0f + velocity));
+    // Mix layers
+    float output = fm1 * 0.3f + fm2 * 0.3f + harmonicMix * 0.2f + resonantSignal * 0.2f;
     
-    // Hall reverb
-    reverb.roomSize = 0.6f;
-    reverb.wetLevel = 0.25f;
-    output = output * 0.75f + reverb.process(output) * 0.25f;
+    // Spectral warping
+    float warpAmount = 1.0f + lfos[2].process();
+    output = spectralWarp(output, warpAmount);
     
-    return output * 0.5f;
+    // Tube saturation
+    output = analogSaturate(output * 2.0f) * 0.7f;
+    
+    // Comb filtering for metallic resonance
+    static float combBuffer[256] = {0};
+    static int combIndex = 0;
+    int combDelay = int(frequency / 100.0f);
+    combDelay = std::max(1, std::min(255, combDelay));
+    
+    float combOut = combBuffer[(combIndex - combDelay + 256) % 256];
+    combBuffer[combIndex] = output + combOut * 0.4f;
+    combIndex = (combIndex + 1) % 256;
+    output = output + combOut * 0.3f;
+    
+    // Aggressive compression
+    output = hardClip(output * 1.5f) * 0.6f;
+    
+    return output * velocity;
 }
 
 float SynthEngine::generateCloudNine(float phase, float frequency)
@@ -402,204 +442,335 @@ float SynthEngine::generateCloudNine(float phase, float frequency)
     return (output * 0.3f + reverbSignal * 0.5f + delaySignal * 0.2f) * 0.4f;
 }
 
-float SynthEngine::generateGoldenLead(float phase, float frequency)
+float SynthEngine::generateQuantumFlux(float phase, float frequency)
 {
-    // Wavetable lead with analog filter
+    // Glitchy evolving lead with spectral discontinuities
     
-    // Dual wavetable oscillators slightly detuned
-    float osc1 = wavetable.generate(phase);
+    // Layer 1: Wavetable with random harmonic amplitude modulation
+    float wt = wavetable.generate(phase);
     
-    layers[0].phase += (frequency * 1.003f) / 44100.0f;
-    if (layers[0].phase >= 1.0f) layers[0].phase -= 1.0f;
-    float osc2 = wavetable.generate(layers[0].phase) * 0.7f;
+    // Randomize harmonics every few samples for glitch effect
+    if (sampleCounter % 128 == 0)
+    {
+        for (int i = 0; i < 8; i++)
+        {
+            harmonics[i].amplitude = randomFloat() * 0.5f + 0.5f;
+        }
+    }
     
-    float output = osc1 + osc2;
+    float harmonicGlitch = 0.0f;
+    for (int i = 1; i < 8; i++)
+    {
+        float harmPhase = phase * float(i);
+        harmonicGlitch += std::sin(harmPhase * 2.0f * M_PI) * harmonics[i].amplitude / float(i);
+    }
     
-    // Add bite with sync
-    if (phase < 0.01f)
-        layers[1].phase = 0.0f;
-    layers[1].phase += (frequency * 2.0f) / 44100.0f;
-    if (layers[1].phase >= 1.0f) layers[1].phase -= 1.0f;
-    output += std::sin(2.0f * juce::MathConstants<float>::pi * layers[1].phase) * 0.2f;
+    // Layer 2: Sync oscillator with formant control
+    static float syncPhase = 0.0f;
+    if (phase < 0.01f) syncPhase = 0.0f; // Hard sync
+    syncPhase += (frequency * 1.5f) / 44100.0f;
+    if (syncPhase >= 1.0f) syncPhase -= 1.0f;
     
-    // Moog ladder filter with envelope
-    float cutoff = 1000.0f + velocity * 3000.0f;
-    filters[0].setMoogLadder(cutoff, 0.3f + velocity * 0.4f, 44100.0f);
-    output = filters[0].processMoogLadder(output);
+    float syncOsc = std::sin(syncPhase * 2.0f * M_PI);
     
-    // Add presence
-    filters[1].setStateVariable(3000.0f, 2.0f, 44100.0f);
-    float presence = filters[1].processHighpass(output) * 0.2f;
-    output += presence;
+    // Formant filter on sync
+    float formantFreq = 700.0f + lfos[0].process() * 1000.0f;
+    filters[0].setStateVariable(formantFreq, 5.0f, 44100.0f);
+    syncOsc = filters[0].processBandpass(syncOsc);
     
-    // Vintage saturation
-    output = analogSaturate(output * 1.5f) * 0.7f;
+    // Layer 3: Noise-modulated resonator
+    float noiseMod = randomFloat() * 0.1f;
+    filters[1].setStateVariable(frequency * 4.0f, 8.0f, 44100.0f);
+    float resonator = filters[1].processBandpass(noiseMod + wt * 0.3f);
     
-    // Short delay for thickness
-    delay.time = 0.02f;
-    delay.feedback = 0.2f;
-    delay.mix = 0.15f;
-    output = delay.process(output);
+    // Mix layers
+    float output = wt * 0.3f + harmonicGlitch * 0.3f + syncOsc * 0.2f + resonator * 0.2f;
     
-    // Small room reverb
-    reverb.roomSize = 0.2f;
-    reverb.wetLevel = 0.15f;
-    output = output * 0.85f + reverb.process(output) * 0.15f;
+    // Bit crushing with sample rate reduction
+    bitCrusher.bitDepth = 8.0f + lfos[1].process() * 4.0f;
+    bitCrusher.sampleRateReduction = 4.0f + lfos[2].process() * 8.0f;
+    output = bitCrusher.process(output);
     
-    return output * 0.5f * velocity;
+    // Spectral freeze effect (randomly hold spectral snapshot)
+    static float frozenSample = 0.0f;
+    if (randomFloat() > 0.98f) // 2% chance to freeze
+    {
+        frozenSample = output;
+    }
+    output = output * 0.7f + frozenSample * 0.3f;
+    
+    // Phaser for movement
+    output = phaser.process(output);
+    
+    // Aggressive limiting
+    output = hardClip(output * 2.0f) * 0.5f;
+    
+    return output * velocity;
 }
 
-float SynthEngine::generateDreamPluck(float phase, float frequency)
+float SynthEngine::generateCrystalMatrix(float phase, float frequency)
 {
-    // Karplus-Strong with chorus ensemble
+    // Glassy resonant plucks with harmonic cascades
     
-    // Excitation on note start
+    // Layer 1: Karplus-Strong with harmonic excitation
     float excitation = 0.0f;
     if (phase < 0.01f)
     {
+        // Harmonic excitation burst
+        for (int h = 1; h <= 5; h++)
+        {
+            excitation += std::sin(randomFloat() * M_PI) / float(h);
+        }
+        excitation *= velocity;
+        
         for (auto& string : strings)
         {
-            string.setFrequency(frequency, 44100.0f);
+            string.setFrequency(frequency * float((&string - &strings[0]) + 1), 44100.0f);
         }
-        excitation = (randomFloat() * 0.5f + 0.5f) * velocity;
     }
     
-    float output = 0.0f;
+    // Process through multiple resonant strings at harmonic intervals
+    float stringOut = 0.0f;
+    for (int i = 0; i < 4; i++)
+    {
+        float harmFreq = frequency * float(i + 1);
+        strings[i].setFrequency(harmFreq, 44100.0f);
+        strings[i].damping = 0.1f; // Very resonant
+        float harmString = strings[i].process(excitation / float(i + 1));
+        stringOut += harmString * std::exp(-float(i) * 0.3f); // Exponential decay
+    }
     
-    // Multiple strings for chorus effect
+    // Layer 2: Additive harmonics with exponential decay
+    float additiveOut = 0.0f;
+    for (int h = 1; h <= 12; h++)
+    {
+        float harmPhase = phase * float(h);
+        float harmEnv = std::exp(-phase * 5.0f * h); // Faster decay for higher harmonics
+        additiveOut += std::sin(harmPhase * 2.0f * M_PI) * harmEnv / float(h * h);
+    }
+    
+    // Layer 3: Resonant filter bank (glass resonances)
+    float filterBank = 0.0f;
     for (int i = 0; i < 3; i++)
     {
-        // Slight detuning for each string
-        strings[i].setFrequency(frequency * (1.0f + i * 0.002f), 44100.0f);
-        float stringOut = strings[i].process(excitation * (1.0f - i * 0.2f));
-        output += stringOut * (1.0f / (i + 1));
+        float resonFreq = frequency * (2.0f + i * 1.5f);
+        filters[i].setStateVariable(resonFreq, 12.0f, 44100.0f); // Very high Q
+        filterBank += filters[i].processBandpass(stringOut + additiveOut) * 0.3f;
     }
     
-    // Add fundamental for body
-    output += std::sin(2.0f * juce::MathConstants<float>::pi * phase) * 0.1f;
+    float output = stringOut * 0.4f + additiveOut * 0.3f + filterBank * 0.3f;
     
-    // Resonant body filter
-    filters[0].setStateVariable(frequency * 2.0f, 4.0f, 44100.0f);
-    float resonance = filters[0].processBandpass(output) * 0.3f;
-    output += resonance;
+    // Pitch-shifted delays for harmonic cascades
+    static float pitchBuffer[2048] = {0};
+    static int pitchIndex = 0;
     
-    // Juno-style chorus
-    chorus.rate = 0.6f;
-    chorus.depth = 0.4f;
-    chorus.mix = 0.5f;
-    output = chorus.process(output);
+    // Write to buffer
+    pitchBuffer[pitchIndex] = output;
     
-    // Gentle high-freq rolloff
-    filters[1].setStateVariable(8000.0f, 0.7f, 44100.0f);
-    output = filters[1].processLowpass(output);
+    // Read with pitch shifts
+    float cascade = 0.0f;
+    for (int i = 1; i <= 3; i++)
+    {
+        int delayTime = int(44100.0f / (frequency * float(i * 2)));
+        delayTime = std::min(2047, std::max(1, delayTime));
+        int readIndex = (pitchIndex - delayTime + 2048) % 2048;
+        cascade += pitchBuffer[readIndex] * 0.2f / float(i);
+    }
     
-    // Plate reverb
-    reverb.roomSize = 0.5f;
-    reverb.damping = 0.4f;
-    reverb.wetLevel = 0.3f;
-    output = output * 0.7f + reverb.process(output) * 0.3f;
+    pitchIndex = (pitchIndex + 1) % 2048;
+    output += cascade;
     
-    return output * 0.6f;
+    // Shimmer reverb
+    reverb.roomSize = 0.7f;
+    reverb.damping = 0.2f; // Bright reverb
+    reverb.wetLevel = 0.4f;
+    float shimmer = reverb.process(output);
+    
+    // Harmonic enhancer
+    float enhanced = output + analogSaturate(output * 3.0f) * 0.1f;
+    
+    return (enhanced * 0.6f + shimmer * 0.4f) * 0.7f;
 }
 
-float SynthEngine::generateAmbientWash(float phase, float frequency)
+float SynthEngine::generateSolarWind(float phase, float frequency)
 {
-    // Filtered noise with reverb synthesis
+    // Expansive breathing pads with spectral movement
     
-    // Multiple noise sources
-    float noise = randomFloat() * 0.1f;
-    float darkNoise = randomFloat() * 0.05f;
+    // Layer 1: Granular cloud with spectral freezing
+    if (sampleCounter % 64 == 0) // Trigger new grain
+    {
+        triggerGrain();
+    }
     
-    // Ocean wave LFO
-    float wave1 = std::sin(2.0f * juce::MathConstants<float>::pi * phase * 0.13f);
-    float wave2 = std::sin(2.0f * juce::MathConstants<float>::pi * phase * 0.17f);
-    float waveMod = (wave1 + wave2) * 0.5f;
+    float granularOut = 0.0f;
+    for (auto& grain : grains)
+    {
+        if (grain.active)
+        {
+            grain.envelope += 1.0f / (grain.duration * 44100.0f);
+            if (grain.envelope >= 1.0f)
+            {
+                grain.active = false;
+                continue;
+            }
+            
+            // Gaussian window
+            float window = std::exp(-5.0f * std::pow(grain.envelope - 0.5f, 2));
+            float grainPhase = phase * grain.pitch + grain.position;
+            float grainSample = std::sin(grainPhase * 2.0f * M_PI) * window * grain.amplitude;
+            
+            // Spectral freezing
+            static float frozenSpectrum[32] = {0};
+            if (randomFloat() > 0.99f) // Occasionally freeze spectrum
+            {
+                frozenSpectrum[int(grain.position * 31)] = grainSample;
+            }
+            grainSample = grainSample * 0.7f + frozenSpectrum[int(grain.position * 31)] * 0.3f;
+            
+            granularOut += grainSample * (1.0f - std::abs(grain.pan));
+        }
+    }
     
-    // Resonant filtering for ocean character
-    float cutoff = 500.0f + waveMod * 300.0f + frequency;
-    filters[0].setStateVariable(cutoff, 3.0f, 44100.0f);
-    float filtered = filters[0].processBandpass(noise);
+    // Layer 2: Filtered noise with envelope following
+    float noiseEnv = std::abs(std::sin(phase * 0.1f * M_PI));
+    float filteredNoise = randomFloat() * noiseEnv * 0.1f;
     
-    // Dark layer
-    filters[1].setStateVariable(200.0f, 2.0f, 44100.0f);
-    float dark = filters[1].processLowpass(darkNoise);
+    // Breathing filter
+    float breathFreq = 200.0f + std::sin(phase * 0.05f * M_PI) * 800.0f + frequency;
+    filters[0].setStateVariable(breathFreq, 2.0f, 44100.0f);
+    filteredNoise = filters[0].processBandpass(filteredNoise);
     
-    // Tonal element for musicality
-    float tonal = std::sin(2.0f * juce::MathConstants<float>::pi * phase) * 0.05f;
-    tonal += std::sin(2.0f * juce::MathConstants<float>::pi * phase * 0.5f) * 0.03f;
+    // Layer 3: Harmonic whisper oscillator
+    float whisper = 0.0f;
+    for (int h = 7; h <= 15; h++) // High harmonics only
+    {
+        float harmPhase = phase * float(h);
+        float harmAmp = 1.0f / float(h * h);
+        whisper += std::sin(harmPhase * 2.0f * M_PI) * harmAmp;
+    }
+    whisper *= lfos[0].process() * 0.1f;
     
-    float output = filtered + dark + tonal;
+    // Mix layers
+    float output = granularOut * 0.4f + filteredNoise * 0.3f + whisper * 0.3f;
     
-    // Multi-tap delay network for space
-    delay.time = 0.3f;
-    delay.feedback = 0.5f;
-    delay.mix = 0.4f;
-    float delayed = delay.process(output);
+    // Infinite reverb
+    reverb.roomSize = 0.99f;
+    reverb.damping = 0.1f; // Very bright
+    reverb.wetLevel = 0.8f;
+    float infinite = reverb.process(output);
     
-    // Massive reverb
-    reverb.roomSize = 0.98f;
-    reverb.damping = 0.8f;
-    reverb.wetLevel = 0.7f;
-    float reverbSignal = reverb.process(output + delayed * 0.5f);
+    // Spectral blur (all-pass diffusion network)
+    static float diffusionBuffer[4][512] = {{0}};
+    static int diffusionIndex[4] = {0};
+    float blurred = output;
     
-    // Slow chorus for movement
-    chorus.rate = 0.1f;
-    chorus.depth = 0.3f;
-    chorus.mix = 0.4f;
-    output = chorus.process(reverbSignal);
+    for (int i = 0; i < 4; i++)
+    {
+        int delayTime = 37 + i * 89; // Prime numbers for inharmonic diffusion
+        diffusionBuffer[i][diffusionIndex[i]] = blurred;
+        int readIndex = (diffusionIndex[i] - delayTime + 512) % 512;
+        float delayed = diffusionBuffer[i][readIndex];
+        blurred = delayed * 0.7f + blurred * 0.3f;
+        diffusionIndex[i] = (diffusionIndex[i] + 1) % 512;
+    }
     
-    // Gentle compression
-    output = softClip(output * 2.0f) * 0.5f;
+    // Auto-pan with Doppler effect
+    float panLfo = std::sin(phase * 0.2f * M_PI);
+    float dopplerShift = 1.0f + panLfo * 0.02f; // Slight pitch shift
     
-    return output * 0.4f;
+    // Dimension expander
+    auto [left, right] = dimension.process(infinite);
+    
+    // Mix everything
+    output = blurred * 0.3f + infinite * 0.5f + (left + right) * 0.1f;
+    
+    return softClip(output * 0.5f);
 }
 
-float SynthEngine::generateProphetPoly(float phase, float frequency)
+float SynthEngine::generateVoidResonance(float phase, float frequency)
 {
-    // Virtual analog polysynth
+    // Deep evolving bass with upper harmonic tendrils
     
-    float output = 0.0f;
+    // Layer 1: Sub-bass with harmonic tracking
+    float subFreq = frequency * 0.5f; // One octave down
+    float subPhase = phase * 0.5f;
+    float subBass = std::sin(subPhase * 2.0f * M_PI);
     
-    // Two oscillators per voice
-    // Osc 1: Saw
-    float saw1 = 2.0f * phase - 1.0f;
+    // Add sub-sub for extreme depth
+    float subSubPhase = phase * 0.25f;
+    float subSub = std::sin(subSubPhase * 2.0f * M_PI) * 0.5f;
     
-    // Osc 2: Pulse with PWM
-    layers[0].phase += frequency / 44100.0f;
-    if (layers[0].phase >= 1.0f) layers[0].phase -= 1.0f;
-    float pwm = 0.5f + std::sin(phase * 0.3f) * 0.3f;
-    float pulse = layers[0].phase < pwm ? 1.0f : -1.0f;
+    // Harmonic tracking - emphasize harmonics that align with the key
+    float trackedHarmonics = 0.0f;
+    for (int h = 2; h <= 5; h++)
+    {
+        float harmPhase = phase * float(h);
+        float harmAmp = 1.0f / float(h);
+        // Boost harmonics that are octaves or fifths
+        if (h == 2 || h == 4) harmAmp *= 1.5f; // Octaves
+        if (h == 3) harmAmp *= 1.2f; // Fifth
+        trackedHarmonics += std::sin(harmPhase * 2.0f * M_PI) * harmAmp;
+    }
     
-    // Mix oscillators
-    output = saw1 * 0.5f + pulse * 0.4f;
+    // Layer 2: Formant-morphed wavetable
+    float wtOut = wavetable.generate(phase);
     
-    // Sub oscillator
-    layers[1].phase += (frequency * 0.5f) / 44100.0f;
-    if (layers[1].phase >= 1.0f) layers[1].phase -= 1.0f;
-    float sub = layers[1].phase < 0.5f ? 1.0f : -1.0f;
-    output += sub * 0.2f;
+    // Formant morphing
+    float formant1 = 700.0f + lfos[0].process() * 500.0f;
+    float formant2 = 1220.0f + lfos[1].process() * 800.0f;
     
-    // Classic ladder filter
-    float cutoff = 1500.0f + velocity * 2000.0f;
-    filters[0].setMoogLadder(cutoff, 0.3f, 44100.0f);
-    output = filters[0].processMoogLadder(output);
+    filters[0].setStateVariable(formant1, 4.0f, 44100.0f);
+    filters[1].setStateVariable(formant2, 4.0f, 44100.0f);
     
-    // Vintage chorus
-    chorus.rate = 0.4f;
-    chorus.depth = 0.25f;
-    chorus.mix = 0.3f;
-    output = chorus.process(output);
+    float vowel1 = filters[0].processBandpass(wtOut);
+    float vowel2 = filters[1].processBandpass(wtOut);
+    float formantMorph = vowel1 * 0.5f + vowel2 * 0.5f;
     
-    // Analog warmth
-    output = analogSaturate(output * 1.2f);
+    // Layer 3: Resonant pulse wave
+    float pulseWidth = 0.3f + lfos[2].process() * 0.2f;
+    float pulsePhase = std::fmod(phase, 1.0f);
+    float pulseWave = pulsePhase < pulseWidth ? 1.0f : -1.0f;
     
-    // Studio reverb
-    reverb.roomSize = 0.4f;
-    reverb.damping = 0.5f;
-    reverb.wetLevel = 0.2f;
-    output = output * 0.8f + reverb.process(output) * 0.2f;
+    // Resonant filter on pulse
+    filters[2].setMoogLadder(frequency * 4.0f, 4.0f, 44100.0f);
+    float resonantPulse = filters[2].processMoogLadder(pulseWave);
     
-    return output * 0.5f * velocity;
+    // Mix layers with emphasis on bass
+    float output = (subBass * 0.4f + subSub * 0.2f) + 
+                   trackedHarmonics * 0.15f + 
+                   formantMorph * 0.15f + 
+                   resonantPulse * 0.1f;
+    
+    // Multiband compression
+    // Low band (sub)
+    filters[3].setStateVariable(120.0f, 0.7f, 44100.0f);
+    float lowBand = filters[3].processLowpass(output);
+    lowBand = softClip(lowBand * 2.0f) * 0.5f;
+    
+    // Mid band
+    float midBand = output - lowBand;
+    midBand = softClip(midBand * 1.5f) * 0.6f;
+    
+    output = lowBand + midBand;
+    
+    // Spectral tilt (emphasize lows)
+    float tilt = output - filters[3].processHighpass(output) * 0.3f;
+    
+    // Dimension expander for width
+    dimension.size = 0.3f;
+    dimension.diffusion = 0.5f;
+    auto [left, right] = dimension.process(tilt);
+    
+    // Deep space reverb (subtle)
+    reverb.roomSize = 0.7f;
+    reverb.damping = 0.8f; // Dark reverb
+    reverb.wetLevel = 0.15f;
+    float spaceReverb = reverb.process((left + right) * 0.5f);
+    
+    output = tilt * 0.8f + spaceReverb * 0.2f;
+    
+    // Final limiting
+    return softClip(output * 0.7f) * velocity;
 }
 
 // Helper function implementations
@@ -974,6 +1145,92 @@ void SynthEngine::updateHarmonics(float frequency, int mode)
 float SynthEngine::mixLayers(float dry, float wet, float mix)
 {
     return dry * (1.0f - mix) + wet * mix;
+}
+
+float SynthEngine::spectralWarp(float value, float warp)
+{
+    if (std::abs(warp) < 0.01f) return value;
+    
+    float absValue = std::abs(value);
+    float numerator = std::exp(warp * absValue) - 1.0f;
+    float denominator = std::exp(warp) - 1.0f;
+    
+    return (value >= 0.0f) ? numerator / denominator : -numerator / denominator;
+}
+
+void SynthEngine::applyShepardTone(float* harmonics, int numHarmonics, float position)
+{
+    // Create Shepard tone effect by fading harmonics cyclically
+    for (int i = 0; i < numHarmonics; i++)
+    {
+        float harmPos = std::fmod(position + float(i) / numHarmonics, 1.0f);
+        float envelope = std::sin(harmPos * M_PI);
+        harmonics[i] *= envelope;
+    }
+}
+
+// Advanced processing implementations
+float SynthEngine::BitCrusher::process(float input)
+{
+    // Bit depth reduction
+    float levels = std::pow(2.0f, bitDepth);
+    float quantized = std::round(input * levels) / levels;
+    
+    // Sample rate reduction
+    sampleCounter++;
+    int skipSamples = int(sampleRateReduction);
+    if (sampleCounter >= skipSamples)
+    {
+        lastSample = quantized;
+        sampleCounter = 0;
+    }
+    
+    return lastSample;
+}
+
+float SynthEngine::Phaser::process(float input)
+{
+    // Update LFO
+    lfoPhase += rate * 0.0001f;
+    if (lfoPhase > 1.0f) lfoPhase -= 1.0f;
+    
+    float lfoValue = std::sin(lfoPhase * 2.0f * M_PI);
+    float frequency = 200.0f + lfoValue * depth * 2000.0f;
+    
+    // Process through allpass stages
+    float output = input;
+    for (int i = 0; i < NUM_STAGES; i++)
+    {
+        float allpassCoeff = (1.0f - frequency / 22050.0f) / (1.0f + frequency / 22050.0f);
+        float temp = output;
+        output = -output + allpassCoeff * (output - allpassStates[i]);
+        allpassStates[i] = temp;
+    }
+    
+    return input + output * feedback;
+}
+
+std::pair<float, float> SynthEngine::DimensionExpander::process(float input)
+{
+    // Haas effect with diffusion
+    int delayTime1 = int(size * 441.0f); // 10ms max
+    int delayTime2 = int(size * 882.0f); // 20ms max
+    
+    delayBuffer[writeIndex] = input;
+    
+    int readIndex1 = (writeIndex - delayTime1 + 4096) % 4096;
+    int readIndex2 = (writeIndex - delayTime2 + 4096) % 4096;
+    
+    float delayed1 = delayBuffer[readIndex1];
+    float delayed2 = delayBuffer[readIndex2];
+    
+    // Apply diffusion
+    float diffused1 = delayed1 * (1.0f - diffusion) + delayed2 * diffusion * 0.5f;
+    float diffused2 = delayed2 * (1.0f - diffusion) + delayed1 * diffusion * 0.5f;
+    
+    writeIndex = (writeIndex + 1) % 4096;
+    
+    return {input + diffused1 * 0.3f, input + diffused2 * 0.3f};
 }
 
 SynthEngine::ModeInfo SynthEngine::getModeInfo(int modeIndex)

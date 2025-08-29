@@ -7,12 +7,12 @@
 #include <vector>
 #include <array>
 
-class GOECymaglyphAudioProcessor : public juce::AudioProcessor,
-                                   public juce::AudioProcessorValueTreeState::Listener
+class SandWizardAudioProcessor : public juce::AudioProcessor,
+                                public juce::AudioProcessorValueTreeState::Listener
 {
 public:    
-    GOECymaglyphAudioProcessor();
-    ~GOECymaglyphAudioProcessor() override;
+    SandWizardAudioProcessor();
+    ~SandWizardAudioProcessor() override;
 
     void prepareToPlay(double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
@@ -53,6 +53,8 @@ public:
     int getSynthMode() const { return currentSynthMode.load(); }
     void setMonophonic(bool mono) { isMonophonic = mono; }
     bool getMonophonic() const { return isMonophonic.load(); }
+    void setOctaveShift(int shift) { octaveShift = shift; }
+    int getOctaveShift() const { return octaveShift.load(); }
     
     // Get current playing state
     float getCurrentFrequency() const { return currentFrequency.load(); }
@@ -105,6 +107,7 @@ private:
     // Synthesis state
     std::atomic<int> currentSynthMode{0};
     std::atomic<bool> isMonophonic{true};
+    std::atomic<int> octaveShift{0};
     
     // Audio state
     double sampleRate = 44100.0;
@@ -126,5 +129,5 @@ private:
     int currentMonoNote = -1;
     float monoPhase = 0.0f;
     
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(GOECymaglyphAudioProcessor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SandWizardAudioProcessor)
 };

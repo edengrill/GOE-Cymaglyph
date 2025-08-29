@@ -1,7 +1,7 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
-GOECymaglyphAudioProcessorEditor::GOECymaglyphAudioProcessorEditor(GOECymaglyphAudioProcessor& p)
+SandWizardAudioProcessorEditor::SandWizardAudioProcessorEditor(SandWizardAudioProcessor& p)
     : AudioProcessorEditor(&p), audioProcessor(p)
 {
     // Create enhanced visualizer
@@ -23,6 +23,10 @@ GOECymaglyphAudioProcessorEditor::GOECymaglyphAudioProcessorEditor(GOECymaglyphA
         audioProcessor.setMonophonic(mono);
     };
     
+    settingsPanel->onOctaveChanged = [this](int octaveShift) {
+        audioProcessor.setOctaveShift(octaveShift);
+    };
+    
     // Set editor size
     setSize(900, 900);
     setResizable(true, true);
@@ -32,17 +36,17 @@ GOECymaglyphAudioProcessorEditor::GOECymaglyphAudioProcessorEditor(GOECymaglyphA
     startTimerHz(60);
 }
 
-GOECymaglyphAudioProcessorEditor::~GOECymaglyphAudioProcessorEditor()
+SandWizardAudioProcessorEditor::~SandWizardAudioProcessorEditor()
 {
     stopTimer();
 }
 
-void GOECymaglyphAudioProcessorEditor::paint(juce::Graphics& g)
+void SandWizardAudioProcessorEditor::paint(juce::Graphics& g)
 {
     g.fillAll(juce::Colours::black);
 }
 
-void GOECymaglyphAudioProcessorEditor::resized()
+void SandWizardAudioProcessorEditor::resized()
 {
     auto bounds = getLocalBounds();
     
@@ -51,7 +55,7 @@ void GOECymaglyphAudioProcessorEditor::resized()
     settingsPanel->setBounds(bounds);
 }
 
-void GOECymaglyphAudioProcessorEditor::timerCallback()
+void SandWizardAudioProcessorEditor::timerCallback()
 {
     // Check if audio is playing
     bool isPlaying = audioProcessor.isPlaying();
@@ -93,33 +97,33 @@ void GOECymaglyphAudioProcessorEditor::timerCallback()
 }
 
 // Legacy functions (kept for compatibility but not used)
-bool GOECymaglyphAudioProcessorEditor::keyPressed(const juce::KeyPress& key)
+bool SandWizardAudioProcessorEditor::keyPressed(const juce::KeyPress& key)
 {
     return false;
 }
 
-void GOECymaglyphAudioProcessorEditor::sliderValueChanged(juce::Slider* slider)
+void SandWizardAudioProcessorEditor::sliderValueChanged(juce::Slider* slider)
 {
     juce::ignoreUnused(slider);
 }
 
-void GOECymaglyphAudioProcessorEditor::buttonClicked(juce::Button* button)
+void SandWizardAudioProcessorEditor::buttonClicked(juce::Button* button)
 {
     juce::ignoreUnused(button);
 }
 
-void GOECymaglyphAudioProcessorEditor::setupParameterControls()
+void SandWizardAudioProcessorEditor::setupParameterControls()
 {
 }
 
-void GOECymaglyphAudioProcessorEditor::setupLayout()
+void SandWizardAudioProcessorEditor::setupLayout()
 {
 }
 
-void GOECymaglyphAudioProcessorEditor::updatePresetList()
+void SandWizardAudioProcessorEditor::updatePresetList()
 {
 }
 
-void GOECymaglyphAudioProcessorEditor::saveImage()
+void SandWizardAudioProcessorEditor::saveImage()
 {
 }

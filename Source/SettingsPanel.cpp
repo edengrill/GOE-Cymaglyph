@@ -102,6 +102,54 @@ void SettingsPanel::paint(juce::Graphics& g)
     juce::String modeText = monoMode ? "MONOPHONIC" : "POLYPHONIC";
     g.drawText(modeText, toggleBounds, juce::Justification::centred);
     
+    // Octave control section
+    g.setFont(juce::Font("Arial", 16.0f, juce::Font::bold));
+    g.setColour(juce::Colours::white.withAlpha(0.9f * opacity));
+    
+    // Octave Down button
+    g.setColour(octaveDownHovered ?
+               juce::Colours::white.withAlpha(0.3f * opacity) :
+               juce::Colours::white.withAlpha(0.15f * opacity));
+    g.fillRect(octaveDownButton);
+    
+    g.setColour(octaveDownHovered ?
+               juce::Colours::white.withAlpha(0.9f * opacity) :
+               juce::Colours::white.withAlpha(0.6f * opacity));
+    g.drawRect(octaveDownButton, 2.0f);
+    
+    // Draw minus sign
+    g.setFont(juce::Font("Arial", 24.0f, juce::Font::bold));
+    g.drawText("-", octaveDownButton, juce::Justification::centred);
+    
+    // Octave display
+    g.setColour(juce::Colours::white.withAlpha(0.1f * opacity));
+    g.fillRect(octaveDisplay);
+    
+    g.setColour(juce::Colours::white.withAlpha(0.6f * opacity));
+    g.drawRect(octaveDisplay, 2.0f);
+    
+    g.setFont(juce::Font("Arial", 18.0f, juce::Font::bold));
+    g.setColour(juce::Colours::white.withAlpha(opacity));
+    juce::String octaveText = "OCTAVE: ";
+    if (octaveShift > 0) octaveText += "+";
+    octaveText += juce::String(octaveShift);
+    g.drawText(octaveText, octaveDisplay, juce::Justification::centred);
+    
+    // Octave Up button
+    g.setColour(octaveUpHovered ?
+               juce::Colours::white.withAlpha(0.3f * opacity) :
+               juce::Colours::white.withAlpha(0.15f * opacity));
+    g.fillRect(octaveUpButton);
+    
+    g.setColour(octaveUpHovered ?
+               juce::Colours::white.withAlpha(0.9f * opacity) :
+               juce::Colours::white.withAlpha(0.6f * opacity));
+    g.drawRect(octaveUpButton, 2.0f);
+    
+    // Draw plus sign
+    g.setFont(juce::Font("Arial", 24.0f, juce::Font::bold));
+    g.drawText("+", octaveUpButton, juce::Justification::centred);
+    
     // Footer hint with minimal text
     g.setFont(juce::Font("Arial", 12.0f, juce::Font::plain));
     g.setColour(juce::Colours::white.withAlpha(0.8f * opacity));
@@ -136,6 +184,32 @@ void SettingsPanel::mouseDown(const juce::MouseEvent& event)
         if (onMonoPolyChanged)
             onMonoPolyChanged(monoMode);
         repaint();
+        return;
+    }
+    
+    // Check octave controls
+    if (octaveDownButton.contains(point.toFloat()))
+    {
+        if (octaveShift > -2)
+        {
+            octaveShift--;
+            if (onOctaveChanged)
+                onOctaveChanged(octaveShift);
+            repaint();
+        }
+        return;
+    }
+    
+    if (octaveUpButton.contains(point.toFloat()))
+    {
+        if (octaveShift < 2)
+        {
+            octaveShift++;
+            if (onOctaveChanged)
+                onOctaveChanged(octaveShift);
+            repaint();
+        }
+        return;
     }
 }
 
@@ -160,6 +234,17 @@ void SettingsPanel::mouseMove(const juce::MouseEvent& event)
     bool wasMonoPolyHovered = monoPolyHovered;
     monoPolyHovered = monoPolyToggle.contains(point.toFloat());
     if (monoPolyHovered != wasMonoPolyHovered)
+    {
+        repaint();
+    }
+    
+    // Update octave button hovers
+    bool wasOctaveDownHovered = octaveDownHovered;
+    bool wasOctaveUpHovered = octaveUpHovered;
+    octaveDownHovered = octaveDownButton.contains(point.toFloat());
+    octaveUpHovered = octaveUpButton.contains(point.toFloat());
+    
+    if (octaveDownHovered != wasOctaveDownHovered || octaveUpHovered != wasOctaveUpHovered)
     {
         repaint();
     }
@@ -236,6 +321,35 @@ void SettingsPanel::layoutModeCards()
         toggleY, 
         250.0f, 
         50.0f
+    );
+    
+    // Position octave controls below mono/poly toggle
+    float octaveY = toggleY + 70.0f;
+    float octaveButtonWidth = 50.0f;
+    float octaveDisplayWidth = 150.0f;
+    float octaveHeight = 40.0f;
+    float totalOctaveWidth = octaveButtonWidth * 2 + octaveDisplayWidth + 20.0f; // spacing
+    float octaveStartX = (getWidth() - totalOctaveWidth) * 0.5f;
+    
+    octaveDownButton = juce::Rectangle<float>(
+        octaveStartX,
+        octaveY,
+        octaveButtonWidth,
+        octaveHeight
+    );
+    
+    octaveDisplay = juce::Rectangle<float>(
+        octaveStartX + octaveButtonWidth + 10.0f,
+        octaveY,
+        octaveDisplayWidth,
+        octaveHeight
+    );
+    
+    octaveUpButton = juce::Rectangle<float>(
+        octaveStartX + octaveButtonWidth + octaveDisplayWidth + 20.0f,
+        octaveY,
+        octaveButtonWidth,
+        octaveHeight
     );
 }
 

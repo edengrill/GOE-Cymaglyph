@@ -6,14 +6,14 @@
 #include "EnhancedVisualizer.h"
 #include "SettingsPanel.h"
 
-class GOECymaglyphAudioProcessorEditor : public juce::AudioProcessorEditor,
-                                         private juce::Timer,
-                                         private juce::Slider::Listener,
-                                         private juce::Button::Listener
+class SandWizardAudioProcessorEditor : public juce::AudioProcessorEditor,
+                                       private juce::Timer,
+                                       private juce::Slider::Listener,
+                                       private juce::Button::Listener
 {
 public:
-    GOECymaglyphAudioProcessorEditor(GOECymaglyphAudioProcessor&);
-    ~GOECymaglyphAudioProcessorEditor() override;
+    SandWizardAudioProcessorEditor(SandWizardAudioProcessor&);
+    ~SandWizardAudioProcessorEditor() override;
 
     void paint(juce::Graphics&) override;
     void resized() override;
@@ -35,7 +35,7 @@ private:
     void updatePresetList();
     void saveImage();
     
-    GOECymaglyphAudioProcessor& audioProcessor;
+    SandWizardAudioProcessor& audioProcessor;
     
     // Main components
     std::unique_ptr<EnhancedVisualizer> visualizer;
@@ -44,5 +44,5 @@ private:
     // Silence detection
     float silenceTimer = 0.0f;
     
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(GOECymaglyphAudioProcessorEditor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SandWizardAudioProcessorEditor)
 };

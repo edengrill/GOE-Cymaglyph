@@ -14,14 +14,14 @@ public:
     {
         Crystalline = 0,
         SilkPad,
-        VelvetKeys,
+        NebulaDrift,     // Replacing VelvetKeys
         LiquidBass,
-        VintageBrass,
+        PlasmaCore,      // Replacing VintageBrass
         CloudNine,
-        GoldenLead,
-        DreamPluck,
-        AmbientWash,
-        ProphetPoly,
+        QuantumFlux,     // Replacing GoldenLead
+        CrystalMatrix,   // Replacing DreamPluck
+        SolarWind,       // Replacing AmbientWash
+        VoidResonance,   // Replacing ProphetPoly
         NumModes
     };
     
@@ -55,14 +55,14 @@ private:
     // Synthesis modes
     float generateCrystalline(float phase, float frequency);
     float generateSilkPad(float phase, float frequency);
-    float generateVelvetKeys(float phase, float frequency);
+    float generateNebulaDrift(float phase, float frequency);
     float generateLiquidBass(float phase, float frequency);
-    float generateVintageBrass(float phase, float frequency);
+    float generatePlasmaCore(float phase, float frequency);
     float generateCloudNine(float phase, float frequency);
-    float generateGoldenLead(float phase, float frequency);
-    float generateDreamPluck(float phase, float frequency);
-    float generateAmbientWash(float phase, float frequency);
-    float generateProphetPoly(float phase, float frequency);
+    float generateQuantumFlux(float phase, float frequency);
+    float generateCrystalMatrix(float phase, float frequency);
+    float generateSolarWind(float phase, float frequency);
+    float generateVoidResonance(float phase, float frequency);
     
     // Professional synthesis components
     struct Layer {
@@ -215,6 +215,48 @@ private:
         float process(float excitation);
     };
     
+    // Spectral processing components (Vital/Serum inspired)
+    struct SpectralProcessor {
+        static constexpr int FFT_SIZE = 2048;
+        std::array<float, FFT_SIZE> spectrum;
+        std::array<float, FFT_SIZE> phases;
+        float morphPosition = 0.0f;
+        float warpAmount = 0.0f;
+        
+        void processSpectralMorph(float* buffer, int size, float morph);
+        void applyPhaseDispersion(float amount);
+        void applyHarmonicShift(float shift);
+    };
+    
+    struct Phaser {
+        static constexpr int NUM_STAGES = 6;
+        std::array<float, NUM_STAGES> allpassStates = {0};
+        float lfoPhase = 0.0f;
+        float rate = 0.5f;
+        float depth = 0.5f;
+        float feedback = 0.3f;
+        
+        float process(float input);
+    };
+    
+    struct BitCrusher {
+        float bitDepth = 16.0f;
+        float sampleRateReduction = 1.0f;
+        float lastSample = 0.0f;
+        int sampleCounter = 0;
+        
+        float process(float input);
+    };
+    
+    struct DimensionExpander {
+        std::array<float, 4096> delayBuffer = {0};
+        int writeIndex = 0;
+        float size = 0.5f;
+        float diffusion = 0.7f;
+        
+        std::pair<float, float> process(float input);
+    };
+    
     // Synthesis state
     std::array<Layer, 4> layers;
     std::array<Filter, 4> filters;
@@ -229,6 +271,12 @@ private:
     Chorus chorus;
     Reverb reverb;
     DelayLine delay;
+    
+    // Advanced processing (for futuristic modes)
+    SpectralProcessor spectralProc;
+    Phaser phaser;
+    BitCrusher bitCrusher;
+    DimensionExpander dimension;
     
     // Grain buffer for Cloud Nine
     std::vector<float> grainBuffer;
@@ -252,6 +300,8 @@ private:
     void triggerGrain();
     void updateHarmonics(float frequency, int mode);
     float mixLayers(float dry, float wet, float mix);
+    float spectralWarp(float value, float warp);
+    void applyShepardTone(float* harmonics, int numHarmonics, float position);
     
     // Mode information table
     static const std::array<ModeInfo, NumModes> modeInfoTable;

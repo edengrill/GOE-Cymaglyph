@@ -2,7 +2,7 @@
 #include "PluginEditor.h"
 #include <cmath>
 
-GOECymaglyphAudioProcessor::GOECymaglyphAudioProcessor()
+SandWizardAudioProcessor::SandWizardAudioProcessor()
     : AudioProcessor(BusesProperties()
                     .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
       apvts(*this, nullptr, "Parameters", createParameterLayout())
@@ -21,11 +21,11 @@ GOECymaglyphAudioProcessor::GOECymaglyphAudioProcessor()
     }
 }
 
-GOECymaglyphAudioProcessor::~GOECymaglyphAudioProcessor()
+SandWizardAudioProcessor::~SandWizardAudioProcessor()
 {
 }
 
-juce::AudioProcessorValueTreeState::ParameterLayout GOECymaglyphAudioProcessor::createParameterLayout()
+juce::AudioProcessorValueTreeState::ParameterLayout SandWizardAudioProcessor::createParameterLayout()
 {
     std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
     
@@ -56,12 +56,12 @@ juce::AudioProcessorValueTreeState::ParameterLayout GOECymaglyphAudioProcessor::
     return {params.begin(), params.end()};
 }
 
-void GOECymaglyphAudioProcessor::parameterChanged(const juce::String& parameterID, float newValue)
+void SandWizardAudioProcessor::parameterChanged(const juce::String& parameterID, float newValue)
 {
     // Not actively used in v2
 }
 
-bool GOECymaglyphAudioProcessor::isPlaying() const
+bool SandWizardAudioProcessor::isPlaying() const
 {
     // Check monophonic mode
     if (isMonophonic.load())
@@ -78,7 +78,7 @@ bool GOECymaglyphAudioProcessor::isPlaying() const
     return false;
 }
 
-std::vector<float> GOECymaglyphAudioProcessor::getActiveFrequencies() const
+std::vector<float> SandWizardAudioProcessor::getActiveFrequencies() const
 {
     std::vector<float> frequencies;
     
@@ -93,7 +93,7 @@ std::vector<float> GOECymaglyphAudioProcessor::getActiveFrequencies() const
     return frequencies;
 }
 
-void GOECymaglyphAudioProcessor::prepareToPlay(double sr, int samplesPerBlock)
+void SandWizardAudioProcessor::prepareToPlay(double sr, int samplesPerBlock)
 {
     sampleRate = sr;
     
@@ -106,12 +106,12 @@ void GOECymaglyphAudioProcessor::prepareToPlay(double sr, int samplesPerBlock)
     smoothedGain.setCurrentAndTargetValue(0.5f);
 }
 
-void GOECymaglyphAudioProcessor::releaseResources()
+void SandWizardAudioProcessor::releaseResources()
 {
 }
 
 #ifndef JucePlugin_PreferredChannelConfigurations
-bool GOECymaglyphAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
+bool SandWizardAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
 {
     if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::mono()
      && layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
@@ -121,7 +121,7 @@ bool GOECymaglyphAudioProcessor::isBusesLayoutSupported(const BusesLayout& layou
 }
 #endif
 
-void GOECymaglyphAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
+void SandWizardAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
                                               juce::MidiBuffer& midiMessages)
 {
     juce::ScopedNoDenormals noDenormals;
@@ -241,7 +241,7 @@ void GOECymaglyphAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
 }
 
 
-void GOECymaglyphAudioProcessor::handleMidiMessage(const juce::MidiMessage& message)
+void SandWizardAudioProcessor::handleMidiMessage(const juce::MidiMessage& message)
 {
     bool mono = isMonophonic.load();
     
@@ -291,7 +291,7 @@ void GOECymaglyphAudioProcessor::handleMidiMessage(const juce::MidiMessage& mess
     }
 }
 
-GOECymaglyphAudioProcessor::Voice* GOECymaglyphAudioProcessor::findFreeVoice()
+SandWizardAudioProcessor::Voice* SandWizardAudioProcessor::findFreeVoice()
 {
     for (auto& voice : voices)
     {
@@ -303,7 +303,7 @@ GOECymaglyphAudioProcessor::Voice* GOECymaglyphAudioProcessor::findFreeVoice()
     return nullptr;
 }
 
-GOECymaglyphAudioProcessor::Voice* GOECymaglyphAudioProcessor::findVoiceForNote(int noteNumber)
+SandWizardAudioProcessor::Voice* SandWizardAudioProcessor::findVoiceForNote(int noteNumber)
 {
     for (auto& voice : voices)
     {
@@ -315,19 +315,21 @@ GOECymaglyphAudioProcessor::Voice* GOECymaglyphAudioProcessor::findVoiceForNote(
     return nullptr;
 }
 
-float GOECymaglyphAudioProcessor::noteToFrequency(int noteNumber)
+float SandWizardAudioProcessor::noteToFrequency(int noteNumber)
 {
-    return a4Reference * std::pow(2.0f, (noteNumber - 69) / 12.0f);
+    // Apply octave shift (12 semitones per octave)
+    int shiftedNote = noteNumber + (octaveShift.load() * 12);
+    return a4Reference * std::pow(2.0f, (shiftedNote - 69) / 12.0f);
 }
 
-void GOECymaglyphAudioProcessor::getStateInformation(juce::MemoryBlock& destData)
+void SandWizardAudioProcessor::getStateInformation(juce::MemoryBlock& destData)
 {
     auto state = apvts.copyState();
     std::unique_ptr<juce::XmlElement> xml(state.createXml());
     copyXmlToBinary(*xml, destData);
 }
 
-void GOECymaglyphAudioProcessor::setStateInformation(const void* data, int sizeInBytes)
+void SandWizardAudioProcessor::setStateInformation(const void* data, int sizeInBytes)
 {
     std::unique_ptr<juce::XmlElement> xmlState(getXmlFromBinary(data, sizeInBytes));
     
@@ -340,7 +342,7 @@ void GOECymaglyphAudioProcessor::setStateInformation(const void* data, int sizeI
     }
 }
 
-void GOECymaglyphAudioProcessor::loadPreset(const juce::String& presetName)
+void SandWizardAudioProcessor::loadPreset(const juce::String& presetName)
 {
     auto presetsDir = juce::File::getSpecialLocation(juce::File::currentApplicationFile)
                         .getChildFile("Presets");
@@ -354,7 +356,7 @@ void GOECymaglyphAudioProcessor::loadPreset(const juce::String& presetName)
     }
 }
 
-void GOECymaglyphAudioProcessor::savePreset(const juce::String& presetName)
+void SandWizardAudioProcessor::savePreset(const juce::String& presetName)
 {
     auto presetsDir = juce::File::getSpecialLocation(juce::File::currentApplicationFile)
                         .getChildFile("Presets");
@@ -367,7 +369,7 @@ void GOECymaglyphAudioProcessor::savePreset(const juce::String& presetName)
     presetFile.replaceWithData(data.getData(), data.getSize());
 }
 
-juce::StringArray GOECymaglyphAudioProcessor::getPresetNames()
+juce::StringArray SandWizardAudioProcessor::getPresetNames()
 {
     juce::StringArray presets;
     auto presetsDir = juce::File::getSpecialLocation(juce::File::currentApplicationFile)
@@ -384,12 +386,12 @@ juce::StringArray GOECymaglyphAudioProcessor::getPresetNames()
     return presets;
 }
 
-juce::AudioProcessorEditor* GOECymaglyphAudioProcessor::createEditor()
+juce::AudioProcessorEditor* SandWizardAudioProcessor::createEditor()
 {
-    return new GOECymaglyphAudioProcessorEditor(*this);
+    return new SandWizardAudioProcessorEditor(*this);
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
-    return new GOECymaglyphAudioProcessor();
+    return new SandWizardAudioProcessor();
 }

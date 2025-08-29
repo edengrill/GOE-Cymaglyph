@@ -23,10 +23,12 @@ public:
     // Get current settings
     int getSelectedMode() const { return selectedMode; }
     bool isMonophonic() const { return monoMode; }
+    int getOctaveShift() const { return octaveShift; }
     
     // Callbacks
     std::function<void(int)> onModeSelected;
     std::function<void(bool)> onMonoPolyChanged;
+    std::function<void(int)> onOctaveChanged;
     
 private:
     // Mode card for visual selection
@@ -45,9 +47,17 @@ private:
     juce::Rectangle<float> monoPolyToggle;
     bool monoPolyHovered = false;
     
+    // Octave control
+    juce::Rectangle<float> octaveDownButton;
+    juce::Rectangle<float> octaveUpButton;
+    juce::Rectangle<float> octaveDisplay;
+    bool octaveDownHovered = false;
+    bool octaveUpHovered = false;
+    
     // Current state
     int selectedMode = 0;
     bool monoMode = true;
+    int octaveShift = 0; // Range: -2 to +2
     
     // Animation
     float opacity = 0.0f;
