@@ -288,6 +288,18 @@ private:
     float currentPhase = 0.0f;
     int sampleCounter = 0;
     
+    // Per-mode state (to prevent static variable issues)
+    float plasmaCoreBuffer = 0.0f;
+    std::array<float, 256> combBuffer = {0};
+    int combIndex = 0;
+    float quantumSyncPhase = 0.0f;
+    float quantumFrozenSample = 0.0f;
+    std::array<float, 2048> crystalPitchBuffer = {0};
+    int crystalPitchIndex = 0;
+    std::array<float, 32> solarFrozenSpectrum = {0};
+    std::array<std::array<float, 512>, 4> solarDiffusionBuffer = {{0}};
+    std::array<int, 4> solarDiffusionIndex = {0};
+    
     // Random number generator
     std::mt19937 rng;
     std::uniform_real_distribution<float> randomDist;

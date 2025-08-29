@@ -102,6 +102,48 @@ void SynthEngine::reset()
         env.level = 0.0f;
         env.state = 0.0f;
     }
+    
+    // Reset per-mode state to prevent audio dropouts
+    plasmaCoreBuffer = 0.0f;
+    combBuffer.fill(0);
+    combIndex = 0;
+    quantumSyncPhase = 0.0f;
+    quantumFrozenSample = 0.0f;
+    crystalPitchBuffer.fill(0);
+    crystalPitchIndex = 0;
+    solarFrozenSpectrum.fill(0);
+    for (auto& buffer : solarDiffusionBuffer)
+    {
+        buffer.fill(0);
+    }
+    solarDiffusionIndex.fill(0);
+    
+    // Reset filters to prevent DC buildup
+    for (auto& filter : filters)
+    {
+        filter.low = 0;
+        filter.band = 0;
+        filter.high = 0;
+        filter.notch = 0;
+        for (int i = 0; i < 4; i++)
+        {
+            filter.stage[i] = 0;
+            filter.delay[i] = 0;
+        }
+    }
+    
+    // Reset effects
+    reverb.initialize();
+    delay.buffer.clear();
+    delay.writeIndex = 0;
+    
+    // Reset phaser
+    phaser.lfoPhase = 0.0f;
+    phaser.allpassStates.fill(0);
+    
+    // Reset bit crusher
+    bitCrusher.lastSample = 0.0f;
+    bitCrusher.sampleCounter = 0;
 }
 
 float SynthEngine::generateSample(float phase, float frequency, int modeIndex)
@@ -153,7 +195,7 @@ float SynthEngine::generateCrystalline(float phase, float frequency)
     // Subtle reverb
     float reverbSignal = reverb.process(output * 0.3f);
     
-    return output * 0.6f + reverbSignal * 0.4f;
+    return softClip((output * 0.6f + reverbSignal * 0.4f) * 0.7f); // Normalized
 }
 
 float SynthEngine::generateSilkPad(float phase, float frequency)
@@ -196,7 +238,7 @@ float SynthEngine::generateSilkPad(float phase, float frequency)
     // Analog warmth
     output = analogSaturate(output * 0.5f + reverbSignal * 0.5f);
     
-    return output * 0.4f * velocity;
+    return softClip(output * 0.7f * velocity); // Normalized
 }
 
 float SynthEngine::generateNebulaDrift(float phase, float frequency)
@@ -261,7 +303,7 @@ float SynthEngine::generateNebulaDrift(float phase, float frequency)
     reverb.wetLevel = 0.5f;
     output = output * 0.5f + reverb.process(output) * 0.5f;
     
-    return softClip(output * 0.6f);
+    return softClip(output * 0.5f); // Normalized
 }
 
 float SynthEngine::generateLiquidBass(float phase, float frequency)
@@ -301,7 +343,7 @@ float SynthEngine::generateLiquidBass(float phase, float frequency)
     chorus.mix = 0.1f;
     output = chorus.process(output);
     
-    return output * 0.6f;
+    return softClip(output * 0.7f); // Normalized
 }
 
 float SynthEngine::generatePlasmaCore(float phase, float frequency)
@@ -339,11 +381,10 @@ float SynthEngine::generatePlasmaCore(float phase, float frequency)
     float harmonicMix = oddHarmonics * (1.0f - morphPos) + evenHarmonics * morphPos;
     
     // Layer 3: Resonant feedback network
-    static float feedbackBuffer = 0.0f;
-    float resonantSignal = fm1 + feedbackBuffer * 0.3f;
+    float resonantSignal = fm1 + plasmaCoreBuffer * 0.3f;
     filters[0].setMoogLadder(frequency * 2.5f, 3.5f, 44100.0f);
     resonantSignal = filters[0].processMoogLadder(resonantSignal);
-    feedbackBuffer = resonantSignal * 0.7f;
+    plasmaCoreBuffer = resonantSignal * 0.7f;
     
     // Mix layers
     float output = fm1 * 0.3f + fm2 * 0.3f + harmonicMix * 0.2f + resonantSignal * 0.2f;
@@ -355,9 +396,7 @@ float SynthEngine::generatePlasmaCore(float phase, float frequency)
     // Tube saturation
     output = analogSaturate(output * 2.0f) * 0.7f;
     
-    // Comb filtering for metallic resonance
-    static float combBuffer[256] = {0};
-    static int combIndex = 0;
+    // Comb filtering for metallic resonance  
     int combDelay = int(frequency / 100.0f);
     combDelay = std::max(1, std::min(255, combDelay));
     
@@ -369,7 +408,7 @@ float SynthEngine::generatePlasmaCore(float phase, float frequency)
     // Aggressive compression
     output = hardClip(output * 1.5f) * 0.6f;
     
-    return output * velocity;
+    return softClip(output * 0.7f * velocity); // Normalized
 }
 
 float SynthEngine::generateCloudNine(float phase, float frequency)
@@ -439,7 +478,7 @@ float SynthEngine::generateCloudNine(float phase, float frequency)
     delay.mix = 0.3f;
     float delaySignal = delay.process(output);
     
-    return (output * 0.3f + reverbSignal * 0.5f + delaySignal * 0.2f) * 0.4f;
+    return softClip((output * 0.3f + reverbSignal * 0.5f + delaySignal * 0.2f) * 0.6f); // Normalized
 }
 
 float SynthEngine::generateQuantumFlux(float phase, float frequency)
@@ -466,12 +505,11 @@ float SynthEngine::generateQuantumFlux(float phase, float frequency)
     }
     
     // Layer 2: Sync oscillator with formant control
-    static float syncPhase = 0.0f;
-    if (phase < 0.01f) syncPhase = 0.0f; // Hard sync
-    syncPhase += (frequency * 1.5f) / 44100.0f;
-    if (syncPhase >= 1.0f) syncPhase -= 1.0f;
+    if (phase < 0.01f) quantumSyncPhase = 0.0f; // Hard sync
+    quantumSyncPhase += (frequency * 1.5f) / 44100.0f;
+    if (quantumSyncPhase >= 1.0f) quantumSyncPhase -= 1.0f;
     
-    float syncOsc = std::sin(syncPhase * 2.0f * M_PI);
+    float syncOsc = std::sin(quantumSyncPhase * 2.0f * M_PI);
     
     // Formant filter on sync
     float formantFreq = 700.0f + lfos[0].process() * 1000.0f;
@@ -492,12 +530,11 @@ float SynthEngine::generateQuantumFlux(float phase, float frequency)
     output = bitCrusher.process(output);
     
     // Spectral freeze effect (randomly hold spectral snapshot)
-    static float frozenSample = 0.0f;
     if (randomFloat() > 0.98f) // 2% chance to freeze
     {
-        frozenSample = output;
+        quantumFrozenSample = output;
     }
-    output = output * 0.7f + frozenSample * 0.3f;
+    output = output * 0.7f + quantumFrozenSample * 0.3f;
     
     // Phaser for movement
     output = phaser.process(output);
@@ -505,7 +542,7 @@ float SynthEngine::generateQuantumFlux(float phase, float frequency)
     // Aggressive limiting
     output = hardClip(output * 2.0f) * 0.5f;
     
-    return output * velocity;
+    return softClip(output * 0.7f * velocity); // Normalized
 }
 
 float SynthEngine::generateCrystalMatrix(float phase, float frequency)
@@ -561,11 +598,8 @@ float SynthEngine::generateCrystalMatrix(float phase, float frequency)
     float output = stringOut * 0.4f + additiveOut * 0.3f + filterBank * 0.3f;
     
     // Pitch-shifted delays for harmonic cascades
-    static float pitchBuffer[2048] = {0};
-    static int pitchIndex = 0;
-    
     // Write to buffer
-    pitchBuffer[pitchIndex] = output;
+    crystalPitchBuffer[crystalPitchIndex] = output;
     
     // Read with pitch shifts
     float cascade = 0.0f;
@@ -573,11 +607,11 @@ float SynthEngine::generateCrystalMatrix(float phase, float frequency)
     {
         int delayTime = int(44100.0f / (frequency * float(i * 2)));
         delayTime = std::min(2047, std::max(1, delayTime));
-        int readIndex = (pitchIndex - delayTime + 2048) % 2048;
-        cascade += pitchBuffer[readIndex] * 0.2f / float(i);
+        int readIndex = (crystalPitchIndex - delayTime + 2048) % 2048;
+        cascade += crystalPitchBuffer[readIndex] * 0.2f / float(i);
     }
     
-    pitchIndex = (pitchIndex + 1) % 2048;
+    crystalPitchIndex = (crystalPitchIndex + 1) % 2048;
     output += cascade;
     
     // Shimmer reverb
@@ -589,7 +623,7 @@ float SynthEngine::generateCrystalMatrix(float phase, float frequency)
     // Harmonic enhancer
     float enhanced = output + analogSaturate(output * 3.0f) * 0.1f;
     
-    return (enhanced * 0.6f + shimmer * 0.4f) * 0.7f;
+    return softClip((enhanced * 0.6f + shimmer * 0.4f) * 0.6f); // Normalized
 }
 
 float SynthEngine::generateSolarWind(float phase, float frequency)
@@ -620,12 +654,11 @@ float SynthEngine::generateSolarWind(float phase, float frequency)
             float grainSample = std::sin(grainPhase * 2.0f * M_PI) * window * grain.amplitude;
             
             // Spectral freezing
-            static float frozenSpectrum[32] = {0};
             if (randomFloat() > 0.99f) // Occasionally freeze spectrum
             {
-                frozenSpectrum[int(grain.position * 31)] = grainSample;
+                solarFrozenSpectrum[int(grain.position * 31)] = grainSample;
             }
-            grainSample = grainSample * 0.7f + frozenSpectrum[int(grain.position * 31)] * 0.3f;
+            grainSample = grainSample * 0.7f + solarFrozenSpectrum[int(grain.position * 31)] * 0.3f;
             
             granularOut += grainSample * (1.0f - std::abs(grain.pan));
         }
@@ -660,18 +693,16 @@ float SynthEngine::generateSolarWind(float phase, float frequency)
     float infinite = reverb.process(output);
     
     // Spectral blur (all-pass diffusion network)
-    static float diffusionBuffer[4][512] = {{0}};
-    static int diffusionIndex[4] = {0};
     float blurred = output;
     
     for (int i = 0; i < 4; i++)
     {
         int delayTime = 37 + i * 89; // Prime numbers for inharmonic diffusion
-        diffusionBuffer[i][diffusionIndex[i]] = blurred;
-        int readIndex = (diffusionIndex[i] - delayTime + 512) % 512;
-        float delayed = diffusionBuffer[i][readIndex];
+        solarDiffusionBuffer[i][solarDiffusionIndex[i]] = blurred;
+        int readIndex = (solarDiffusionIndex[i] - delayTime + 512) % 512;
+        float delayed = solarDiffusionBuffer[i][readIndex];
         blurred = delayed * 0.7f + blurred * 0.3f;
-        diffusionIndex[i] = (diffusionIndex[i] + 1) % 512;
+        solarDiffusionIndex[i] = (solarDiffusionIndex[i] + 1) % 512;
     }
     
     // Auto-pan with Doppler effect
@@ -684,7 +715,7 @@ float SynthEngine::generateSolarWind(float phase, float frequency)
     // Mix everything
     output = blurred * 0.3f + infinite * 0.5f + (left + right) * 0.1f;
     
-    return softClip(output * 0.5f);
+    return softClip(output * 0.6f); // Normalized
 }
 
 float SynthEngine::generateVoidResonance(float phase, float frequency)
@@ -770,7 +801,7 @@ float SynthEngine::generateVoidResonance(float phase, float frequency)
     output = tilt * 0.8f + spaceReverb * 0.2f;
     
     // Final limiting
-    return softClip(output * 0.7f) * velocity;
+    return softClip(output * 0.6f * velocity); // Normalized
 }
 
 // Helper function implementations

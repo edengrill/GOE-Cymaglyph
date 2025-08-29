@@ -49,7 +49,10 @@ public:
     juce::AudioProcessorValueTreeState& getAPVTS() { return apvts; }
     
     // Synthesis control
-    void setSynthMode(int mode) { currentSynthMode = mode; }
+    void setSynthMode(int mode) { 
+        currentSynthMode = mode; 
+        if (synthEngine) synthEngine->reset(); // Reset to prevent audio issues
+    }
     int getSynthMode() const { return currentSynthMode.load(); }
     void setMonophonic(bool mono) { isMonophonic = mono; }
     bool getMonophonic() const { return isMonophonic.load(); }
