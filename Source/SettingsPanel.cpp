@@ -26,16 +26,16 @@ void SettingsPanel::paint(juce::Graphics& g)
     g.setColour(juce::Colours::black.withAlpha(0.95f * opacity));
     g.fillRect(bounds);
     
-    // Title with simple font
+    // Add spacing from top
+    bounds.removeFromTop(100);
+    
+    // Title positioned lower and centered
     g.setColour(juce::Colours::white.withAlpha(opacity));
     g.setFont(juce::Font("Arial", 28.0f, juce::Font::bold));
-    g.drawText("SAND WIZARD by Garden of Eden", bounds.removeFromTop(70), juce::Justification::centred);
+    g.drawText("SAND WIZARD by Garden of Eden", bounds.removeFromTop(50), juce::Justification::centred);
     
-    // Instructions with clearer font
-    g.setFont(juce::Font("Arial", 14.0f, juce::Font::plain));
-    g.setColour(juce::Colours::white.withAlpha(0.9f * opacity));
-    juce::String instructions = "Click a mode to select • Play notes on your MIDI keyboard";
-    g.drawText(instructions, bounds.removeFromTop(30), juce::Justification::centred);
+    // Add spacing before mode cards
+    bounds.removeFromTop(40);
     
     // Draw mode cards
     for (int i = 0; i < SynthEngine::NumModes; i++)
@@ -191,7 +191,7 @@ void SettingsPanel::setVisible(bool shouldBeVisible, bool animate)
 void SettingsPanel::layoutModeCards()
 {
     auto bounds = getLocalBounds();
-    bounds.removeFromTop(120); // Space for title and instructions
+    bounds.removeFromTop(190); // Space for repositioned title
     bounds.removeFromBottom(100); // Space for mono/poly toggle and footer
     
     // Layout mode cards in a grid
