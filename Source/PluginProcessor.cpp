@@ -7,7 +7,7 @@ GOECymaglyphAudioProcessor::GOECymaglyphAudioProcessor()
                     .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
       apvts(*this, nullptr, "Parameters", createParameterLayout())
 {
-    // Initialize synthesis engine
+    // Initialize synthesis engine with advanced modes
     synthEngine = std::make_unique<SynthEngine>();
     
     // Initialize smoothed values
@@ -253,6 +253,7 @@ void GOECymaglyphAudioProcessor::handleMidiMessage(const juce::MidiMessage& mess
             float freq = noteToFrequency(currentMonoNote);
             currentFrequency.store(freq);
             smoothedFreq.setTargetValue(freq);
+            synthEngine->reset(); // Reset synthesis engine for new note
         }
         else if (message.isNoteOff() && message.getNoteNumber() == currentMonoNote)
         {
