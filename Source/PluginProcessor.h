@@ -143,5 +143,9 @@ private:
     float monoPhase = 0.0f;
     std::vector<int> heldMonoNotes; // Stack of held notes for proper mono behavior
     
+    // DC blocker for stability
+    float dcBlockerX1 = 0.0f;
+    float dcBlockerY1 = 0.0f;
+    
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SandWizardAudioProcessor)
 };

@@ -98,13 +98,30 @@ void SandWizardAudioProcessor::prepareToPlay(double sr, int samplesPerBlock)
 {
     sampleRate = sr;
     
-    // Configure smoothing
-    smoothedFreq.reset(sr, 0.01); // 10ms smoothing
-    smoothedGain.reset(sr, 0.01);
+    // Configure smoothing with faster response for stability
+    smoothedFreq.reset(sr, 0.005); // 5ms smoothing for quicker response
+    smoothedGain.reset(sr, 0.005);
     
     // Set initial values
     smoothedFreq.setCurrentAndTargetValue(440.0f);
     smoothedGain.setCurrentAndTargetValue(0.5f);
+    
+    // Reset synthesis engine for clean start
+    if (synthEngine)
+    {
+        synthEngine->reset();
+    }
+    
+    // Clear all voices
+    for (auto& voice : voices)
+    {
+        voice.reset();
+    }
+    
+    // Clear mono state
+    currentMonoNote = -1;
+    monoPhase = 0.0f;
+    heldMonoNotes.clear();
 }
 
 void SandWizardAudioProcessor::releaseResources()
@@ -152,14 +169,23 @@ void SandWizardAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
             return; // No note playing
         }
         
-        float freq = noteToFrequency(currentMonoNote);
+        float targetFreq = noteToFrequency(currentMonoNote);
+        smoothedFreq.setTargetValue(targetFreq);
         
         for (int sample = 0; sample < numSamples; ++sample)
         {
             const float gain = smoothedGain.getNextValue();
+            const float freq = smoothedFreq.getNextValue(); // Smooth frequency changes
             
             // Generate waveform using synthesis engine
             float output = synthEngine->generateSample(monoPhase, freq, synthMode) * gain;
+            
+            // Apply DC blocker (high-pass filter at ~20Hz)
+            const float dcBlockerCutoff = 0.995f;
+            float dcBlockerOutput = output - dcBlockerX1 + dcBlockerCutoff * dcBlockerY1;
+            dcBlockerX1 = output;
+            dcBlockerY1 = dcBlockerOutput;
+            output = dcBlockerOutput;
             
             // Write to all channels
             for (int channel = 0; channel < numChannels; ++channel)
@@ -173,7 +199,7 @@ void SandWizardAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
             if (monoPhase >= 1.0f) monoPhase -= 1.0f;
         }
         
-        currentFrequency.store(freq);
+        currentFrequency.store(targetFreq);
         currentPhase.store(monoPhase);
     }
     else // Polyphonic
@@ -215,6 +241,13 @@ void SandWizardAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
             {
                 output *= smoothedGain.getNextValue() / std::sqrt(static_cast<float>(activeVoices));
             }
+            
+            // Apply DC blocker
+            const float dcBlockerCutoff = 0.995f;
+            float dcBlockerOutput = output - dcBlockerX1 + dcBlockerCutoff * dcBlockerY1;
+            dcBlockerX1 = output;
+            dcBlockerY1 = dcBlockerOutput;
+            output = dcBlockerOutput;
             
             // Write to all channels
             for (int channel = 0; channel < numChannels; ++channel)
