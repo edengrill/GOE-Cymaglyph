@@ -264,28 +264,58 @@ void SandWizardAudioProcessor::handleMidiMessage(const juce::MidiMessage& messag
     {
         if (message.isNoteOn())
         {
-            // Find a free voice or steal the oldest one
+            int noteNumber = message.getNoteNumber();
+            
+            // First check if this note is already playing (prevent duplicates)
+            Voice* existingVoice = findVoiceForNote(noteNumber);
+            if (existingVoice != nullptr)
+            {
+                // Retrigger the existing voice instead of creating a new one
+                existingVoice->phase = 0.0f;
+                existingVoice->targetAmplitude = message.getFloatVelocity();
+                return;
+            }
+            
+            // Find a free voice or steal the oldest/quietest one
             Voice* voice = findFreeVoice();
             if (voice == nullptr)
             {
-                // Steal first voice
+                // Steal the quietest voice
                 voice = &voices[0];
+                for (auto& v : voices)
+                {
+                    if (v.amplitude < voice->amplitude)
+                    {
+                        voice = &v;
+                    }
+                }
             }
             
             voice->active = true;
-            voice->noteNumber = message.getNoteNumber();
-            voice->frequency = noteToFrequency(voice->noteNumber);
+            voice->noteNumber = noteNumber;
+            voice->frequency = noteToFrequency(noteNumber);
             voice->phase = 0.0f;
             voice->targetAmplitude = message.getFloatVelocity();
             voice->amplitude = 0.0f; // Start from 0 for smooth attack
         }
         else if (message.isNoteOff())
         {
-            // Find the voice playing this note
-            Voice* voice = findVoiceForNote(message.getNoteNumber());
-            if (voice != nullptr)
+            // Find ALL voices playing this note (in case of duplicates)
+            int noteNumber = message.getNoteNumber();
+            for (auto& voice : voices)
             {
-                voice->targetAmplitude = 0.0f; // Start release
+                if (voice.active && voice.noteNumber == noteNumber)
+                {
+                    voice.targetAmplitude = 0.0f; // Start release
+                }
+            }
+        }
+        else if (message.isAllNotesOff() || message.isAllSoundOff())
+        {
+            // Emergency stop all voices
+            for (auto& voice : voices)
+            {
+                voice.reset();
             }
         }
     }

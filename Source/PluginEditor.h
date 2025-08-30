@@ -5,6 +5,7 @@
 #include "PluginProcessor.h"
 #include "EnhancedVisualizer.h"
 #include "SettingsPanel.h"
+#include <set>
 
 class SandWizardAudioProcessorEditor : public juce::AudioProcessorEditor,
                                        private juce::Timer,
@@ -44,6 +45,9 @@ private:
     
     // Silence detection
     float silenceTimer = 0.0f;
+    
+    // Keyboard tracking to prevent duplicate notes
+    std::set<int> activeKeyNotes;
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SandWizardAudioProcessorEditor)
 };
