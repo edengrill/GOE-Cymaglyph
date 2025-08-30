@@ -133,6 +133,7 @@ private:
     // Monophonic tracking
     int currentMonoNote = -1;
     float monoPhase = 0.0f;
+    std::vector<int> heldMonoNotes; // Stack of held notes for proper mono behavior
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SandWizardAudioProcessor)
 };

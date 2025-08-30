@@ -1,6 +1,7 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include <cmath>
+#include <algorithm>
 
 SandWizardAudioProcessor::SandWizardAudioProcessor()
     : AudioProcessor(BusesProperties()
@@ -249,14 +250,55 @@ void SandWizardAudioProcessor::handleMidiMessage(const juce::MidiMessage& messag
     {
         if (message.isNoteOn())
         {
-            currentMonoNote = message.getNoteNumber();
+            int noteNumber = message.getNoteNumber();
+            
+            // Add to held notes list if not already there
+            auto it = std::find(heldMonoNotes.begin(), heldMonoNotes.end(), noteNumber);
+            if (it == heldMonoNotes.end())
+            {
+                heldMonoNotes.push_back(noteNumber);
+            }
+            
+            // Play the new note
+            currentMonoNote = noteNumber;
             float freq = noteToFrequency(currentMonoNote);
             currentFrequency.store(freq);
             smoothedFreq.setTargetValue(freq);
-            synthEngine->reset(); // Reset synthesis engine for new note
+            // Don't reset synthesis engine for smoother transitions
         }
-        else if (message.isNoteOff() && message.getNoteNumber() == currentMonoNote)
+        else if (message.isNoteOff())
         {
+            int noteNumber = message.getNoteNumber();
+            
+            // Remove from held notes
+            auto it = std::find(heldMonoNotes.begin(), heldMonoNotes.end(), noteNumber);
+            if (it != heldMonoNotes.end())
+            {
+                heldMonoNotes.erase(it);
+            }
+            
+            // If this was the current note, switch to the most recent held note
+            if (noteNumber == currentMonoNote)
+            {
+                if (!heldMonoNotes.empty())
+                {
+                    // Return to the most recently pressed note still held
+                    currentMonoNote = heldMonoNotes.back();
+                    float freq = noteToFrequency(currentMonoNote);
+                    currentFrequency.store(freq);
+                    smoothedFreq.setTargetValue(freq);
+                }
+                else
+                {
+                    // No more notes held
+                    currentMonoNote = -1;
+                }
+            }
+        }
+        else if (message.isAllNotesOff() || message.isAllSoundOff())
+        {
+            // Clear all held notes
+            heldMonoNotes.clear();
             currentMonoNote = -1;
         }
     }
