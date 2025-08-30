@@ -102,9 +102,34 @@ void SandWizardAudioProcessorEditor::timerCallback()
 // Legacy functions (kept for compatibility but not used)
 bool SandWizardAudioProcessorEditor::keyPressed(const juce::KeyPress& key)
 {
+    // Handle key releases first
+    if (key.getModifiers().isCommandDown() || key.getModifiers().isCtrlDown())
+    {
+        // Let system shortcuts pass through
+        return false;
+    }
+    
     // Computer keyboard to MIDI mapping
     const char keys[] = "awsedftgyhujkolp;'";
     const int baseNote = 60; // Middle C
+    
+    // Handle space bar to toggle settings
+    if (key.getKeyCode() == juce::KeyPress::spaceKey)
+    {
+        bool isVisible = settingsPanel->isFullyVisible();
+        settingsPanel->setVisible(!isVisible, true);
+        return true;
+    }
+    
+    // Handle escape to send all notes off
+    if (key.getKeyCode() == juce::KeyPress::escapeKey)
+    {
+        // Emergency all notes off
+        juce::MidiMessage msg = juce::MidiMessage::allNotesOff(1);
+        audioProcessor.handleMidiMessage(msg);
+        activeKeyNotes.clear();
+        return true;
+    }
     
     char keyChar = (char)key.getTextCharacter();
     
@@ -114,9 +139,19 @@ bool SandWizardAudioProcessorEditor::keyPressed(const juce::KeyPress& key)
         {
             int noteNumber = baseNote + i;
             
-            // Only send note-on if this note isn't already active
-            if (activeKeyNotes.find(noteNumber) == activeKeyNotes.end())
+            // Check if this is a key release (we're checking by seeing if the note is already active)
+            if (activeKeyNotes.find(noteNumber) != activeKeyNotes.end())
             {
+                // This is a key release (key was already pressed)
+                activeKeyNotes.erase(noteNumber);
+                
+                // Send MIDI note off
+                juce::MidiMessage msg = juce::MidiMessage::noteOff(1, noteNumber);
+                audioProcessor.handleMidiMessage(msg);
+            }
+            else
+            {
+                // This is a key press
                 activeKeyNotes.insert(noteNumber);
                 
                 // Send MIDI note on
@@ -135,46 +170,18 @@ bool SandWizardAudioProcessorEditor::keyPressed(const juce::KeyPress& key)
         }
     }
     
-    // Handle space bar to toggle settings
-    if (key.getKeyCode() == juce::KeyPress::spaceKey)
-    {
-        bool isVisible = settingsPanel->isFullyVisible();
-        settingsPanel->setVisible(!isVisible, true);
-        return true;
-    }
-    
     return false;
 }
 
 bool SandWizardAudioProcessorEditor::keyStateChanged(bool isKeyDown)
 {
-    if (!isKeyDown)  // Key released
+    // Don't use this for note handling - it's unreliable
+    // We handle everything in keyPressed instead
+    
+    if (!isKeyDown && !activeKeyNotes.empty())
     {
-        // Check which key was released and send note-off for that specific note
-        const char keys[] = "awsedftgyhujkolp;'";
-        const int baseNote = 60; // Middle C
-        
-        // Get current key states
-        auto currentPressedKeys = juce::Desktop::getInstance().getMouseSource(0)->getCurrentModifiers();
-        
-        // Check each possible key
-        for (int i = 0; i < 18; i++)
-        {
-            int noteNumber = baseNote + i;
-            
-            // If this note was active but the key is no longer pressed
-            if (activeKeyNotes.find(noteNumber) != activeKeyNotes.end())
-            {
-                // Check if the key for this note is still pressed
-                bool keyStillPressed = false;
-                
-                // Since we can't directly check individual keys, we'll send note-off
-                // for all previously active notes and clear the set
-                // This is a simpler approach that ensures no stuck notes
-            }
-        }
-        
-        // Send note-off for all active notes and clear the set
+        // Safety measure: if we have stuck notes and no keys are pressed,
+        // clear everything
         for (int noteNumber : activeKeyNotes)
         {
             juce::MidiMessage msg = juce::MidiMessage::noteOff(1, noteNumber);

@@ -252,37 +252,43 @@ void SandWizardAudioProcessor::handleMidiMessage(const juce::MidiMessage& messag
         {
             int noteNumber = message.getNoteNumber();
             
-            // Add to held notes list if not already there
-            auto it = std::find(heldMonoNotes.begin(), heldMonoNotes.end(), noteNumber);
-            if (it == heldMonoNotes.end())
+            // Remove note if it exists (to re-add at end for last-note priority)
+            heldMonoNotes.erase(
+                std::remove(heldMonoNotes.begin(), heldMonoNotes.end(), noteNumber),
+                heldMonoNotes.end()
+            );
+            
+            // Add note to end of list (most recent)
+            heldMonoNotes.push_back(noteNumber);
+            
+            // Limit the size to prevent memory issues
+            if (heldMonoNotes.size() > 10)
             {
-                heldMonoNotes.push_back(noteNumber);
+                heldMonoNotes.erase(heldMonoNotes.begin());
             }
             
-            // Play the new note
+            // Always play the most recent note
             currentMonoNote = noteNumber;
             float freq = noteToFrequency(currentMonoNote);
             currentFrequency.store(freq);
             smoothedFreq.setTargetValue(freq);
-            // Don't reset synthesis engine for smoother transitions
         }
         else if (message.isNoteOff())
         {
             int noteNumber = message.getNoteNumber();
             
             // Remove from held notes
-            auto it = std::find(heldMonoNotes.begin(), heldMonoNotes.end(), noteNumber);
-            if (it != heldMonoNotes.end())
-            {
-                heldMonoNotes.erase(it);
-            }
+            heldMonoNotes.erase(
+                std::remove(heldMonoNotes.begin(), heldMonoNotes.end(), noteNumber),
+                heldMonoNotes.end()
+            );
             
-            // If this was the current note, switch to the most recent held note
+            // If this was the current note, play the most recent remaining note
             if (noteNumber == currentMonoNote)
             {
                 if (!heldMonoNotes.empty())
                 {
-                    // Return to the most recently pressed note still held
+                    // Play the last note in the list (most recently pressed that's still held)
                     currentMonoNote = heldMonoNotes.back();
                     float freq = noteToFrequency(currentMonoNote);
                     currentFrequency.store(freq);
@@ -307,54 +313,66 @@ void SandWizardAudioProcessor::handleMidiMessage(const juce::MidiMessage& messag
         if (message.isNoteOn())
         {
             int noteNumber = message.getNoteNumber();
+            float velocity = message.getFloatVelocity();
             
-            // First check if this note is already playing (prevent duplicates)
+            // Check if this note is already playing
             Voice* existingVoice = findVoiceForNote(noteNumber);
             if (existingVoice != nullptr)
             {
-                // Retrigger the existing voice instead of creating a new one
-                existingVoice->phase = 0.0f;
-                existingVoice->targetAmplitude = message.getFloatVelocity();
+                // Retrigger existing voice
+                existingVoice->targetAmplitude = velocity;
+                existingVoice->amplitude = existingVoice->amplitude * 0.5f; // Soft retrigger
                 return;
             }
             
-            // Find a free voice or steal the oldest/quietest one
+            // Find a free voice
             Voice* voice = findFreeVoice();
             if (voice == nullptr)
             {
-                // Steal the quietest voice
-                voice = &voices[0];
+                // Find the quietest voice to steal
+                float minAmp = 1.0f;
+                voice = nullptr;
                 for (auto& v : voices)
                 {
-                    if (v.amplitude < voice->amplitude)
+                    if (v.amplitude < minAmp)
                     {
+                        minAmp = v.amplitude;
                         voice = &v;
                     }
                 }
+                
+                // If we still don't have a voice, use the first one
+                if (voice == nullptr)
+                {
+                    voice = &voices[0];
+                }
             }
             
+            // Initialize the voice
             voice->active = true;
             voice->noteNumber = noteNumber;
             voice->frequency = noteToFrequency(noteNumber);
             voice->phase = 0.0f;
-            voice->targetAmplitude = message.getFloatVelocity();
+            voice->targetAmplitude = velocity;
             voice->amplitude = 0.0f; // Start from 0 for smooth attack
         }
         else if (message.isNoteOff())
         {
-            // Find ALL voices playing this note (in case of duplicates)
             int noteNumber = message.getNoteNumber();
+            
+            // Release all voices playing this note
             for (auto& voice : voices)
             {
                 if (voice.active && voice.noteNumber == noteNumber)
                 {
                     voice.targetAmplitude = 0.0f; // Start release
+                    // Don't immediately deactivate, let it fade out
                 }
             }
         }
         else if (message.isAllNotesOff() || message.isAllSoundOff())
         {
-            // Emergency stop all voices
+            // Stop all voices immediately
             for (auto& voice : voices)
             {
                 voice.reset();

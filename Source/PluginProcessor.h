@@ -54,7 +54,15 @@ public:
         if (synthEngine) synthEngine->reset(); // Reset to prevent audio issues
     }
     int getSynthMode() const { return currentSynthMode.load(); }
-    void setMonophonic(bool mono) { isMonophonic = mono; }
+    void setMonophonic(bool mono) { 
+        isMonophonic = mono; 
+        // Clear all notes when switching modes
+        heldMonoNotes.clear();
+        currentMonoNote = -1;
+        for (auto& voice : voices) {
+            voice.reset();
+        }
+    }
     bool getMonophonic() const { return isMonophonic.load(); }
     void setOctaveShift(int shift) { octaveShift = shift; }
     int getOctaveShift() const { return octaveShift.load(); }
