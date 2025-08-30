@@ -10,7 +10,7 @@ SandWizardAudioProcessorEditor::SandWizardAudioProcessorEditor(SandWizardAudioPr
     
     // Create settings panel
     settingsPanel = std::make_unique<SettingsPanel>();
-    settingsPanel->setVisible(true, false);  // Start visible immediately
+    settingsPanel->setVisible(false, false);  // Start hidden
     addAndMakeVisible(settingsPanel.get());
     
     // Setup callbacks
@@ -31,6 +31,9 @@ SandWizardAudioProcessorEditor::SandWizardAudioProcessorEditor(SandWizardAudioPr
     setSize(900, 900);
     setResizable(true, true);
     setResizeLimits(600, 600, 1920, 1920);
+    
+    // Request keyboard focus for computer keyboard MIDI
+    setWantsKeyboardFocus(true);
     
     // Start timer to check for silence and update visualizer
     startTimerHz(60);
@@ -99,6 +102,57 @@ void SandWizardAudioProcessorEditor::timerCallback()
 // Legacy functions (kept for compatibility but not used)
 bool SandWizardAudioProcessorEditor::keyPressed(const juce::KeyPress& key)
 {
+    // Computer keyboard to MIDI mapping
+    const char keys[] = "awsedftgyhujkolp;'";
+    const int baseNote = 60; // Middle C
+    
+    char keyChar = (char)key.getTextCharacter();
+    
+    for (int i = 0; i < 18; i++)
+    {
+        if (keyChar == keys[i])
+        {
+            // Send MIDI note on
+            juce::MidiMessage msg = juce::MidiMessage::noteOn(1, baseNote + i, (juce::uint8)100);
+            audioProcessor.handleMidiMessage(msg);
+            
+            // Hide settings panel when playing
+            if (settingsPanel->isFullyVisible())
+            {
+                settingsPanel->setVisible(false, true);
+            }
+            silenceTimer = 0.0f;
+            
+            return true;
+        }
+    }
+    
+    // Handle space bar to toggle settings
+    if (key.getKeyCode() == juce::KeyPress::spaceKey)
+    {
+        bool isVisible = settingsPanel->isFullyVisible();
+        settingsPanel->setVisible(!isVisible, true);
+        return true;
+    }
+    
+    return false;
+}
+
+bool SandWizardAudioProcessorEditor::keyStateChanged(bool isKeyDown)
+{
+    if (!isKeyDown)  // Key released
+    {
+        // Send all notes off when any key is released
+        // This is simpler but works for monophonic/simple polyphonic play
+        const int baseNote = 60; // Middle C
+        
+        for (int i = 0; i < 18; i++)
+        {
+            juce::MidiMessage msg = juce::MidiMessage::noteOff(1, baseNote + i);
+            audioProcessor.handleMidiMessage(msg);
+        }
+    }
+    
     return false;
 }
 

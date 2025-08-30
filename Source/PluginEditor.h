@@ -18,8 +18,9 @@ public:
     void paint(juce::Graphics&) override;
     void resized() override;
     
-    // Keyboard handling (not used in v3.0)
+    // Keyboard handling
     bool keyPressed(const juce::KeyPress& key) override;
+    bool keyStateChanged(bool isKeyDown) override;
 
 private:
     // Timer callback for updating visualizer

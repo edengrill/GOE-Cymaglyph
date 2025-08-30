@@ -65,6 +65,9 @@ public:
     std::vector<float> getActiveFrequencies() const;
     bool isPlaying() const;
     
+    // MIDI handling (public for keyboard input)
+    void handleMidiMessage(const juce::MidiMessage& message);
+    
     // Preset management (keeping for potential future use)
     void loadPreset(const juce::String& presetName);
     void savePreset(const juce::String& presetName);
@@ -95,8 +98,7 @@ private:
     // Synthesis engine
     std::unique_ptr<SynthEngine> synthEngine;
     
-    // MIDI handling
-    void handleMidiMessage(const juce::MidiMessage& message);
+    // MIDI handling helpers
     float noteToFrequency(int noteNumber);
     
     // Voice management
