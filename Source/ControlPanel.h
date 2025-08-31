@@ -11,6 +11,7 @@ public:
     
     void paint(juce::Graphics&) override;
     void resized() override;
+    bool hitTest(int x, int y) override;
     
     void setVisible(bool shouldBeVisible, bool animate = true);
     bool isFullyVisible() const { return targetAlpha > 0.5f; }

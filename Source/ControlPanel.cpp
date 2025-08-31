@@ -82,6 +82,9 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState& vts)
     animator->startTimerHz(60);
     
     setAlpha(0.0f);
+    
+    // Make the component not intercept mouse clicks in transparent areas
+    setInterceptsMouseClicks(true, true);
 }
 
 ControlPanel::~ControlPanel()
@@ -91,8 +94,8 @@ ControlPanel::~ControlPanel()
 
 void ControlPanel::paint(juce::Graphics& g)
 {
-    // Semi-transparent dark background
-    g.fillAll(juce::Colours::black.withAlpha(0.85f * currentAlpha));
+    // Don't fill the entire background - only draw section backgrounds
+    // This allows clicks to pass through to components below
     
     // Draw section backgrounds
     auto bounds = getLocalBounds().reduced(20);
@@ -121,6 +124,19 @@ void ControlPanel::paint(juce::Graphics& g)
     g.fillRoundedRectangle(effectsSection.toFloat(), 10.0f);
     g.setColour(juce::Colours::white.withAlpha(0.7f * currentAlpha));
     g.drawText("EFFECTS", effectsSection.removeFromTop(25), juce::Justification::centred);
+}
+
+bool ControlPanel::hitTest(int x, int y)
+{
+    // Only respond to clicks if the panel is visible
+    if (currentAlpha < 0.1f)
+        return false;
+    
+    // Only respond to clicks in the control panel area (top 450 pixels)
+    if (y > 450)
+        return false;
+    
+    return true;
 }
 
 void ControlPanel::resized()

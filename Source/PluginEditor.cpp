@@ -4,19 +4,22 @@
 SandWizardAudioProcessorEditor::SandWizardAudioProcessorEditor(SandWizardAudioProcessor& p)
     : AudioProcessorEditor(&p), audioProcessor(p)
 {
-    // Create enhanced visualizer
+    // Create enhanced visualizer (bottom layer)
     visualizer = std::make_unique<EnhancedVisualizer>(audioProcessor.getAPVTS());
     addAndMakeVisible(visualizer.get());
     
-    // Create settings panel
+    // Create settings panel (middle layer)
     settingsPanel = std::make_unique<SettingsPanel>();
     settingsPanel->setVisible(false, false);  // Start hidden
     addAndMakeVisible(settingsPanel.get());
     
-    // Create control panel
+    // Create control panel (top layer - must be added last)
     controlPanel = std::make_unique<ControlPanel>(audioProcessor.getAPVTS());
     controlPanel->setVisible(false, false);  // Start hidden
     addAndMakeVisible(controlPanel.get());
+    
+    // Ensure proper z-order
+    controlPanel->toFront(false);
     
     // Setup callbacks
     settingsPanel->onModeSelected = [this](int mode) {
@@ -58,10 +61,16 @@ void SandWizardAudioProcessorEditor::resized()
 {
     auto bounds = getLocalBounds();
     
-    // All components fill the entire window
+    // Visualizer is the base layer
     visualizer->setBounds(bounds);
+    
+    // Settings panel is on top of visualizer
     settingsPanel->setBounds(bounds);
-    controlPanel->setBounds(bounds);
+    
+    // Control panel only occupies the top portion
+    auto controlBounds = bounds;
+    controlBounds.setHeight(450); // Only use top 450 pixels
+    controlPanel->setBounds(controlBounds);
 }
 
 void SandWizardAudioProcessorEditor::timerCallback()
