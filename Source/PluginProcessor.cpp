@@ -168,7 +168,7 @@ bool SandWizardAudioProcessor::isPlaying() const
     // Check polyphonic voices
     for (const auto& voice : voices)
     {
-        if (voice.active && voice.amplitude > 0.01f)
+        if (voice.active && voice.ampEnvLevel > 0.01f)
             return true;
     }
     return false;
@@ -180,7 +180,7 @@ std::vector<float> SandWizardAudioProcessor::getActiveFrequencies() const
     
     for (const auto& voice : voices)
     {
-        if (voice.active && voice.amplitude > 0.01f)
+        if (voice.active && voice.ampEnvLevel > 0.01f)
         {
             frequencies.push_back(voice.frequency);
         }
@@ -492,7 +492,7 @@ void SandWizardAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
         int count = 0;
         for (const auto& voice : voices)
         {
-            if (voice.active && voice.amplitude > 0.01f)
+            if (voice.active && voice.ampEnvLevel > 0.01f)
             {
                 avgFreq += voice.frequency;
                 count++;
