@@ -92,6 +92,16 @@ private:
         float amplitude = 0.0f;
         float targetAmplitude = 0.0f;
         
+        // ADSR envelope state
+        enum EnvelopeStage { Off, Attack, Decay, Sustain, Release };
+        EnvelopeStage ampEnvStage = Off;
+        float ampEnvLevel = 0.0f;
+        EnvelopeStage filterEnvStage = Off;
+        float filterEnvLevel = 0.0f;
+        
+        // Voice-specific filter state
+        float filterCutoff = 1000.0f;
+        
         void reset()
         {
             active = false;
@@ -100,6 +110,23 @@ private:
             phase = 0.0f;
             amplitude = 0.0f;
             targetAmplitude = 0.0f;
+            ampEnvStage = Off;
+            ampEnvLevel = 0.0f;
+            filterEnvStage = Off;
+            filterEnvLevel = 0.0f;
+            filterCutoff = 1000.0f;
+        }
+        
+        void startNote()
+        {
+            ampEnvStage = Attack;
+            filterEnvStage = Attack;
+        }
+        
+        void stopNote()
+        {
+            ampEnvStage = Release;
+            filterEnvStage = Release;
         }
     };
     
@@ -112,6 +139,9 @@ private:
     // Voice management
     Voice* findFreeVoice();
     Voice* findVoiceForNote(int noteNumber);
+    
+    // Envelope processing
+    void processEnvelope(Voice& voice, float attack, float decay, float sustain, float release);
     
     // Parameters
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();

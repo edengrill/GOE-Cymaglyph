@@ -54,6 +54,8 @@ target_sources(SandWizard PRIVATE
     Source/EnhancedVisualizer.cpp
     Source/SettingsPanel.h
     Source/SettingsPanel.cpp
+    Source/ControlPanel.h
+    Source/ControlPanel.cpp
 )
 
 # Add JUCE module paths

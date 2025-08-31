@@ -5,6 +5,7 @@
 #include "PluginProcessor.h"
 #include "EnhancedVisualizer.h"
 #include "SettingsPanel.h"
+#include "ControlPanel.h"
 #include <set>
 
 class SandWizardAudioProcessorEditor : public juce::AudioProcessorEditor,
@@ -42,6 +43,7 @@ private:
     // Main components
     std::unique_ptr<EnhancedVisualizer> visualizer;
     std::unique_ptr<SettingsPanel> settingsPanel;
+    std::unique_ptr<ControlPanel> controlPanel;
     
     // Silence detection
     float silenceTimer = 0.0f;

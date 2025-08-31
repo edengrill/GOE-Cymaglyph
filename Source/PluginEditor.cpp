@@ -13,6 +13,11 @@ SandWizardAudioProcessorEditor::SandWizardAudioProcessorEditor(SandWizardAudioPr
     settingsPanel->setVisible(false, false);  // Start hidden
     addAndMakeVisible(settingsPanel.get());
     
+    // Create control panel
+    controlPanel = std::make_unique<ControlPanel>(audioProcessor.getAPVTS());
+    controlPanel->setVisible(false, false);  // Start hidden
+    addAndMakeVisible(controlPanel.get());
+    
     // Setup callbacks
     settingsPanel->onModeSelected = [this](int mode) {
         audioProcessor.setSynthMode(mode);
@@ -53,9 +58,10 @@ void SandWizardAudioProcessorEditor::resized()
 {
     auto bounds = getLocalBounds();
     
-    // Both components fill the entire window
+    // All components fill the entire window
     visualizer->setBounds(bounds);
     settingsPanel->setBounds(bounds);
+    controlPanel->setBounds(bounds);
 }
 
 void SandWizardAudioProcessorEditor::timerCallback()
@@ -118,6 +124,20 @@ bool SandWizardAudioProcessorEditor::keyPressed(const juce::KeyPress& key)
     {
         bool isVisible = settingsPanel->isFullyVisible();
         settingsPanel->setVisible(!isVisible, true);
+        // Hide control panel when showing settings
+        if (!isVisible)
+            controlPanel->setVisible(false, true);
+        return true;
+    }
+    
+    // Handle tab key to toggle control panel
+    if (key.getKeyCode() == juce::KeyPress::tabKey)
+    {
+        bool isVisible = controlPanel->isFullyVisible();
+        controlPanel->setVisible(!isVisible, true);
+        // Hide settings panel when showing controls
+        if (!isVisible)
+            settingsPanel->setVisible(false, true);
         return true;
     }
     

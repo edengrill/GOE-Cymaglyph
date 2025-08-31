@@ -30,15 +30,116 @@ juce::AudioProcessorValueTreeState::ParameterLayout SandWizardAudioProcessor::cr
 {
     std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
     
-    // Keep minimal parameters for internal use
+    // Oscillator Parameters
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
-        "freq", "Frequency", 
-        juce::NormalisableRange<float>(20.0f, 20000.0f, 0.1f, 0.3f), 440.0f));
+        "oscDetune", "Oscillator Detune", 
+        juce::NormalisableRange<float>(-50.0f, 50.0f, 0.1f), 0.0f));
     
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
-        "gain", "Gain", 0.0f, 1.0f, 0.5f));
+        "oscPhase", "Oscillator Phase", 0.0f, 1.0f, 0.0f));
     
-    // Keep these for visual settings (can be changed via presets)
+    // Filter Parameters
+    params.push_back(std::make_unique<juce::AudioParameterChoice>(
+        "filterType", "Filter Type", 
+        juce::StringArray{"Lowpass", "Highpass", "Bandpass", "Notch", "Off"}, 0));
+    
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "filterCutoff", "Filter Cutoff", 
+        juce::NormalisableRange<float>(20.0f, 20000.0f, 0.1f, 0.3f), 1000.0f));
+    
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "filterResonance", "Filter Resonance", 
+        juce::NormalisableRange<float>(0.1f, 10.0f, 0.01f), 1.0f));
+    
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "filterDrive", "Filter Drive", 
+        juce::NormalisableRange<float>(0.0f, 2.0f, 0.01f), 0.0f));
+    
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "filterEnvAmount", "Filter Env Amount", 
+        juce::NormalisableRange<float>(-1.0f, 1.0f, 0.01f), 0.0f));
+    
+    // ADSR Envelope Parameters
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "ampAttack", "Amp Attack", 
+        juce::NormalisableRange<float>(0.001f, 5.0f, 0.001f, 0.3f), 0.01f));
+    
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "ampDecay", "Amp Decay", 
+        juce::NormalisableRange<float>(0.001f, 5.0f, 0.001f, 0.3f), 0.1f));
+    
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "ampSustain", "Amp Sustain", 0.0f, 1.0f, 0.7f));
+    
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "ampRelease", "Amp Release", 
+        juce::NormalisableRange<float>(0.001f, 10.0f, 0.001f, 0.3f), 0.5f));
+    
+    // Filter Envelope Parameters
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "filterAttack", "Filter Attack", 
+        juce::NormalisableRange<float>(0.001f, 5.0f, 0.001f, 0.3f), 0.01f));
+    
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "filterDecay", "Filter Decay", 
+        juce::NormalisableRange<float>(0.001f, 5.0f, 0.001f, 0.3f), 0.1f));
+    
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "filterSustain", "Filter Sustain", 0.0f, 1.0f, 0.5f));
+    
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "filterRelease", "Filter Release", 
+        juce::NormalisableRange<float>(0.001f, 10.0f, 0.001f, 0.3f), 0.5f));
+    
+    // LFO Parameters
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "lfo1Rate", "LFO 1 Rate", 
+        juce::NormalisableRange<float>(0.01f, 20.0f, 0.01f, 0.3f), 1.0f));
+    
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "lfo1Depth", "LFO 1 Depth", 0.0f, 1.0f, 0.0f));
+    
+    params.push_back(std::make_unique<juce::AudioParameterChoice>(
+        "lfo1Target", "LFO 1 Target", 
+        juce::StringArray{"Off", "Pitch", "Filter", "Amplitude", "Pan"}, 0));
+    
+    // Effects Parameters
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "reverbMix", "Reverb Mix", 0.0f, 1.0f, 0.0f));
+    
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "reverbSize", "Reverb Size", 0.0f, 1.0f, 0.5f));
+    
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "chorusMix", "Chorus Mix", 0.0f, 1.0f, 0.0f));
+    
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "chorusRate", "Chorus Rate", 0.1f, 10.0f, 1.0f));
+    
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "chorusDepth", "Chorus Depth", 0.0f, 1.0f, 0.3f));
+    
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "delayMix", "Delay Mix", 0.0f, 1.0f, 0.0f));
+    
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "delayTime", "Delay Time", 0.01f, 2.0f, 0.25f));
+    
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "delayFeedback", "Delay Feedback", 0.0f, 0.95f, 0.3f));
+    
+    // Global Parameters
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "masterVolume", "Master Volume", 
+        juce::NormalisableRange<float>(0.0f, 2.0f, 0.01f), 0.7f));
+    
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "velocitySensitivity", "Velocity Sensitivity", 0.0f, 1.0f, 0.5f));
+    
+    params.push_back(std::make_unique<juce::AudioParameterInt>(
+        "voiceCount", "Voice Count", 1, 16, 8));
+    
+    // Keep visual parameters for backwards compatibility
     params.push_back(std::make_unique<juce::AudioParameterChoice>(
         "medium", "Medium", juce::StringArray{"Plate", "Membrane", "Water"}, 0));
     
@@ -47,12 +148,6 @@ juce::AudioProcessorValueTreeState::ParameterLayout SandWizardAudioProcessor::cr
     
     params.push_back(std::make_unique<juce::AudioParameterChoice>(
         "colorMode", "Color Mode", juce::StringArray{"Mono", "Heat"}, 0));
-    
-    params.push_back(std::make_unique<juce::AudioParameterFloat>(
-        "nodeEps", "Node Threshold", 0.0f, 0.1f, 0.02f));
-    
-    params.push_back(std::make_unique<juce::AudioParameterFloat>(
-        "grainAmt", "Grain Amount", 0.0f, 1.0f, 0.7f));
     
     return {params.begin(), params.end()};
 }
@@ -204,6 +299,17 @@ void SandWizardAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     }
     else // Polyphonic
     {
+        // Get envelope parameters
+        float ampAttack = *apvts.getRawParameterValue("ampAttack");
+        float ampDecay = *apvts.getRawParameterValue("ampDecay");
+        float ampSustain = *apvts.getRawParameterValue("ampSustain");
+        float ampRelease = *apvts.getRawParameterValue("ampRelease");
+        
+        float filterCutoff = *apvts.getRawParameterValue("filterCutoff");
+        float filterResonance = *apvts.getRawParameterValue("filterResonance");
+        int filterType = static_cast<int>(*apvts.getRawParameterValue("filterType"));
+        float filterEnvAmount = *apvts.getRawParameterValue("filterEnvAmount");
+        
         // Polyphonic mode - multiple voices
         for (int sample = 0; sample < numSamples; ++sample)
         {
@@ -216,22 +322,36 @@ void SandWizardAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
                 {
                     activeVoices++;
                     
-                    // Smooth amplitude changes
-                    voice.amplitude = voice.amplitude * 0.99f + voice.targetAmplitude * 0.01f;
+                    // Process amplitude envelope
+                    processEnvelope(voice, ampAttack, ampDecay, ampSustain, ampRelease);
                     
-                    if (voice.amplitude > 0.001f)
+                    if (voice.ampEnvLevel > 0.001f)
                     {
+                        // Calculate filter cutoff with envelope modulation
+                        float envModulatedCutoff = filterCutoff;
+                        if (filterEnvAmount != 0.0f)
+                        {
+                            // Filter envelope processing (simplified for now)
+                            envModulatedCutoff = filterCutoff * (1.0f + filterEnvAmount * voice.filterEnvLevel);
+                            envModulatedCutoff = std::clamp(envModulatedCutoff, 20.0f, 20000.0f);
+                        }
+                        
                         // Generate waveform using synthesis engine
-                        output += synthEngine->generateSample(voice.phase, voice.frequency, synthMode) * voice.amplitude;
+                        float voiceOut = synthEngine->generateSample(voice.phase, voice.frequency, synthMode);
+                        
+                        // Apply amplitude envelope and velocity
+                        voiceOut *= voice.ampEnvLevel * voice.targetAmplitude;
+                        
+                        output += voiceOut;
                         
                         // Update phase
                         const float phaseInc = voice.frequency * phaseIncBase;
                         voice.phase += phaseInc;
                         if (voice.phase >= 1.0f) voice.phase -= 1.0f;
                     }
-                    else
+                    else if (voice.ampEnvStage == Voice::Off)
                     {
-                        voice.reset(); // Voice has faded out
+                        voice.reset(); // Voice has completed its envelope
                     }
                 }
             }
@@ -388,6 +508,7 @@ void SandWizardAudioProcessor::handleMidiMessage(const juce::MidiMessage& messag
             voice->phase = 0.0f;
             voice->targetAmplitude = velocity;
             voice->amplitude = 0.0f; // Start from 0 for smooth attack
+            voice->startNote(); // Start envelopes
         }
         else if (message.isNoteOff())
         {
@@ -398,8 +519,8 @@ void SandWizardAudioProcessor::handleMidiMessage(const juce::MidiMessage& messag
             {
                 if (voice.active && voice.noteNumber == noteNumber)
                 {
-                    voice.targetAmplitude = 0.0f; // Start release
-                    // Don't immediately deactivate, let it fade out
+                    voice.stopNote(); // Trigger release stage
+                    // Don't immediately deactivate, let envelope fade out
                 }
             }
         }
@@ -512,6 +633,56 @@ juce::StringArray SandWizardAudioProcessor::getPresetNames()
 juce::AudioProcessorEditor* SandWizardAudioProcessor::createEditor()
 {
     return new SandWizardAudioProcessorEditor(*this);
+}
+
+void SandWizardAudioProcessor::processEnvelope(Voice& voice, float attack, float decay, float sustain, float release)
+{
+    const float sampleRate = getSampleRate();
+    const float attackRate = 1.0f / (attack * sampleRate);
+    const float decayRate = 1.0f / (decay * sampleRate);
+    const float releaseRate = 1.0f / (release * sampleRate);
+    
+    // Process amplitude envelope
+    switch (voice.ampEnvStage)
+    {
+        case Voice::Attack:
+            voice.ampEnvLevel += attackRate;
+            if (voice.ampEnvLevel >= 1.0f)
+            {
+                voice.ampEnvLevel = 1.0f;
+                voice.ampEnvStage = Voice::Decay;
+            }
+            break;
+            
+        case Voice::Decay:
+            voice.ampEnvLevel -= decayRate * (1.0f - sustain);
+            if (voice.ampEnvLevel <= sustain)
+            {
+                voice.ampEnvLevel = sustain;
+                voice.ampEnvStage = Voice::Sustain;
+            }
+            break;
+            
+        case Voice::Sustain:
+            voice.ampEnvLevel = sustain;
+            break;
+            
+        case Voice::Release:
+            voice.ampEnvLevel -= releaseRate;
+            if (voice.ampEnvLevel <= 0.0f)
+            {
+                voice.ampEnvLevel = 0.0f;
+                voice.ampEnvStage = Voice::Off;
+            }
+            break;
+            
+        case Voice::Off:
+            voice.ampEnvLevel = 0.0f;
+            break;
+    }
+    
+    // Process filter envelope (simplified - same as amp for now)
+    voice.filterEnvLevel = voice.ampEnvLevel;
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
