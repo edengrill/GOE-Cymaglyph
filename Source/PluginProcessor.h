@@ -114,7 +114,7 @@ private:
                 low = band = high = notch = peak = 0.0f;
             }
             
-            float process(float input, float cutoff, float resonance, float sampleRate) {
+            float process(float input, float cutoff, float resonance, float sampleRate, int filterType) {
                 float f = 2.0f * std::sin(juce::MathConstants<float>::pi * cutoff / sampleRate);
                 float q = 1.0f / resonance;
                 
@@ -124,7 +124,15 @@ private:
                 notch = high + low;
                 peak = low - high;
                 
-                return low; // Default to lowpass
+                // Return based on filter type
+                switch (filterType)
+                {
+                    case 0: return low;   // Lowpass
+                    case 1: return high;  // Highpass
+                    case 2: return band;  // Bandpass
+                    case 3: return notch; // Notch
+                    default: return input; // Off/bypass
+                }
             }
         } filter;
         

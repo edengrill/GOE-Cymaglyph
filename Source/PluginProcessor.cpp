@@ -268,6 +268,14 @@ void SandWizardAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     lfo1.depth = *apvts.getRawParameterValue("lfo1Depth");
     int lfoTarget = static_cast<int>(*apvts.getRawParameterValue("lfo1Target"));
     
+    // Update effect parameters for synthesis engine
+    if (synthEngine)
+    {
+        synthEngine->setReverbParameters(reverbSize, reverbMix);
+        synthEngine->setChorusParameters(chorusRate, chorusDepth, chorusMix);
+        synthEngine->setDelayParameters(delayTime, delayFeedback, delayMix);
+    }
+    
     bool mono = isMonophonic.load();
     int synthMode = currentSynthMode.load();
     
@@ -282,13 +290,57 @@ void SandWizardAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
         float targetFreq = noteToFrequency(currentMonoNote);
         smoothedFreq.setTargetValue(targetFreq);
         
+        // Get filter and effects parameters
+        float filterCutoff = *apvts.getRawParameterValue("filterCutoff");
+        float filterResonance = *apvts.getRawParameterValue("filterResonance");
+        int filterType = static_cast<int>(*apvts.getRawParameterValue("filterType"));
+        float masterVolume = *apvts.getRawParameterValue("masterVolume");
+        
+        // Create a mono voice for filtering
+        static Voice monoVoice;
+        
         for (int sample = 0; sample < numSamples; ++sample)
         {
             const float gain = smoothedGain.getNextValue();
             const float freq = smoothedFreq.getNextValue(); // Smooth frequency changes
             
+            // Calculate LFO once per sample
+            float lfoValue = lfo1.process(sampleRate);
+            
+            // Apply LFO modulation based on target
+            float modulatedFreq = freq;
+            float modulatedCutoff = filterCutoff;
+            float amplitudeModulation = 1.0f;
+            
+            if (lfoTarget == 1) // Pitch target
+            {
+                modulatedFreq *= (1.0f + lfoValue * 0.1f);
+            }
+            else if (lfoTarget == 2) // Filter target
+            {
+                modulatedCutoff *= (1.0f + lfoValue);
+            }
+            else if (lfoTarget == 3) // Amplitude target
+            {
+                amplitudeModulation = (1.0f + lfoValue * 0.5f);
+            }
+            
+            modulatedCutoff = std::clamp(modulatedCutoff, 20.0f, 20000.0f);
+            
             // Generate waveform using synthesis engine
-            float output = synthEngine->generateSample(monoPhase, freq, synthMode) * gain;
+            float output = synthEngine->generateSample(monoPhase, modulatedFreq, synthMode) * gain * amplitudeModulation;
+            
+            // Apply filter if enabled
+            if (filterType < 4) // 0-3 are filter types, 4 is "Off"
+            {
+                output = monoVoice.filter.process(output, modulatedCutoff, filterResonance, sampleRate, filterType);
+            }
+            
+            // Apply effects through synthesis engine
+            if (synthEngine)
+            {
+                output = synthEngine->processEffects(output);
+            }
             
             // Apply DC blocker (high-pass filter at ~20Hz)
             const float dcBlockerCutoff = 0.995f;
@@ -297,6 +349,9 @@ void SandWizardAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
             dcBlockerY1 = dcBlockerOutput;
             output = dcBlockerOutput;
             
+            // Apply master volume
+            output *= masterVolume;
+            
             // Write to all channels
             for (int channel = 0; channel < numChannels; ++channel)
             {
@@ -304,7 +359,7 @@ void SandWizardAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
             }
             
             // Update phase
-            const float phaseInc = freq * phaseIncBase;
+            const float phaseInc = modulatedFreq * phaseIncBase;
             monoPhase += phaseInc;
             if (monoPhase >= 1.0f) monoPhase -= 1.0f;
         }
@@ -331,6 +386,9 @@ void SandWizardAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
             float output = 0.0f;
             int activeVoices = 0;
             
+            // Calculate LFO once per sample (not per voice!)
+            float lfoValue = lfo1.process(sampleRate);
+            
             for (auto& voice : voices)
             {
                 if (voice.active)
@@ -342,8 +400,6 @@ void SandWizardAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
                     
                     if (voice.ampEnvLevel > 0.001f)
                     {
-                        // Calculate LFO modulation
-                        float lfoValue = lfo1.process(sampleRate);
                         
                         // Calculate filter cutoff with envelope and LFO modulation
                         float envModulatedCutoff = filterCutoff;
@@ -374,18 +430,8 @@ void SandWizardAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
                         // Apply filter if enabled
                         if (filterType < 4) // 0-3 are filter types, 4 is "Off"
                         {
-                            // Process the filter
-                            voice.filter.process(voiceOut, envModulatedCutoff, filterResonance, sampleRate);
-                            
-                            // Select filter output based on type
-                            switch (filterType)
-                            {
-                                case 0: voiceOut = voice.filter.low; break;   // Lowpass
-                                case 1: voiceOut = voice.filter.high; break;  // Highpass
-                                case 2: voiceOut = voice.filter.band; break;  // Bandpass
-                                case 3: voiceOut = voice.filter.notch; break; // Notch
-                                default: break; // No filter
-                            }
+                            // Process the filter and get the filtered output
+                            voiceOut = voice.filter.process(voiceOut, envModulatedCutoff, filterResonance, sampleRate, filterType);
                         }
                         
                         // Apply amplitude envelope and velocity
@@ -415,6 +461,12 @@ void SandWizardAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
             if (activeVoices > 0)
             {
                 output *= smoothedGain.getNextValue() / std::sqrt(static_cast<float>(activeVoices));
+            }
+            
+            // Apply effects through synthesis engine
+            if (synthEngine)
+            {
+                output = synthEngine->processEffects(output);
             }
             
             // Apply DC blocker
@@ -452,32 +504,7 @@ void SandWizardAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
         }
     }
     
-    // Apply effects to the entire buffer after voice synthesis
-    if (synthEngine)
-    {
-        // Update effect parameters
-        synthEngine->setReverbParameters(reverbSize, reverbMix);
-        synthEngine->setChorusParameters(chorusRate, chorusDepth, chorusMix);
-        synthEngine->setDelayParameters(delayTime, delayFeedback, delayMix);
-        
-        // Process effects on each channel
-        for (int channel = 0; channel < numChannels; ++channel)
-        {
-            float* channelData = buffer.getWritePointer(channel);
-            
-            for (int sample = 0; sample < numSamples; ++sample)
-            {
-                float dry = channelData[sample];
-                float wet = dry;
-                
-                // Apply effects through synthesis engine
-                wet = synthEngine->processEffects(wet);
-                
-                // Mix based on effect sends (effects are already mixed internally)
-                channelData[sample] = wet;
-            }
-        }
-    }
+    // Note: Effects processing has been moved into the main synthesis loop above
 }
 
 
