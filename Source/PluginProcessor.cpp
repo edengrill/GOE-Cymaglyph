@@ -253,6 +253,21 @@ void SandWizardAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     // Clear buffer first
     buffer.clear();
     
+    // Get effects parameters once
+    float reverbMix = *apvts.getRawParameterValue("reverbMix");
+    float reverbSize = *apvts.getRawParameterValue("reverbSize");
+    float chorusMix = *apvts.getRawParameterValue("chorusMix");
+    float chorusRate = *apvts.getRawParameterValue("chorusRate");
+    float chorusDepth = *apvts.getRawParameterValue("chorusDepth");
+    float delayMix = *apvts.getRawParameterValue("delayMix");
+    float delayTime = *apvts.getRawParameterValue("delayTime");
+    float delayFeedback = *apvts.getRawParameterValue("delayFeedback");
+    
+    // Get LFO parameters
+    lfo1.rate = *apvts.getRawParameterValue("lfo1Rate");
+    lfo1.depth = *apvts.getRawParameterValue("lfo1Depth");
+    int lfoTarget = static_cast<int>(*apvts.getRawParameterValue("lfo1Target"));
+    
     bool mono = isMonophonic.load();
     int synthMode = currentSynthMode.load();
     
@@ -327,20 +342,60 @@ void SandWizardAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
                     
                     if (voice.ampEnvLevel > 0.001f)
                     {
-                        // Calculate filter cutoff with envelope modulation
+                        // Calculate LFO modulation
+                        float lfoValue = lfo1.process(sampleRate);
+                        
+                        // Calculate filter cutoff with envelope and LFO modulation
                         float envModulatedCutoff = filterCutoff;
                         if (filterEnvAmount != 0.0f)
                         {
-                            // Filter envelope processing (simplified for now)
+                            // Filter envelope processing
                             envModulatedCutoff = filterCutoff * (1.0f + filterEnvAmount * voice.filterEnvLevel);
-                            envModulatedCutoff = std::clamp(envModulatedCutoff, 20.0f, 20000.0f);
+                        }
+                        
+                        // Apply LFO modulation based on target
+                        if (lfoTarget == 2) // Filter target
+                        {
+                            envModulatedCutoff *= (1.0f + lfoValue);
+                        }
+                        
+                        envModulatedCutoff = std::clamp(envModulatedCutoff, 20.0f, 20000.0f);
+                        
+                        // Apply pitch modulation if LFO targets pitch
+                        float modulatedFreq = voice.frequency;
+                        if (lfoTarget == 1) // Pitch target
+                        {
+                            modulatedFreq *= (1.0f + lfoValue * 0.1f); // Subtle pitch modulation
                         }
                         
                         // Generate waveform using synthesis engine
-                        float voiceOut = synthEngine->generateSample(voice.phase, voice.frequency, synthMode);
+                        float voiceOut = synthEngine->generateSample(voice.phase, modulatedFreq, synthMode);
+                        
+                        // Apply filter if enabled
+                        if (filterType < 4) // 0-3 are filter types, 4 is "Off"
+                        {
+                            // Process the filter
+                            voice.filter.process(voiceOut, envModulatedCutoff, filterResonance, sampleRate);
+                            
+                            // Select filter output based on type
+                            switch (filterType)
+                            {
+                                case 0: voiceOut = voice.filter.low; break;   // Lowpass
+                                case 1: voiceOut = voice.filter.high; break;  // Highpass
+                                case 2: voiceOut = voice.filter.band; break;  // Bandpass
+                                case 3: voiceOut = voice.filter.notch; break; // Notch
+                                default: break; // No filter
+                            }
+                        }
                         
                         // Apply amplitude envelope and velocity
                         voiceOut *= voice.ampEnvLevel * voice.targetAmplitude;
+                        
+                        // Apply amplitude modulation if LFO targets amplitude
+                        if (lfoTarget == 3) // Amplitude target
+                        {
+                            voiceOut *= (1.0f + lfoValue * 0.5f);
+                        }
                         
                         output += voiceOut;
                         
@@ -369,6 +424,10 @@ void SandWizardAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
             dcBlockerY1 = dcBlockerOutput;
             output = dcBlockerOutput;
             
+            // Apply master volume
+            float masterVolume = *apvts.getRawParameterValue("masterVolume");
+            output *= masterVolume;
+            
             // Write to all channels
             for (int channel = 0; channel < numChannels; ++channel)
             {
@@ -390,6 +449,33 @@ void SandWizardAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
         if (count > 0)
         {
             currentFrequency.store(avgFreq / count);
+        }
+    }
+    
+    // Apply effects to the entire buffer after voice synthesis
+    if (synthEngine)
+    {
+        // Update effect parameters
+        synthEngine->setReverbParameters(reverbSize, reverbMix);
+        synthEngine->setChorusParameters(chorusRate, chorusDepth, chorusMix);
+        synthEngine->setDelayParameters(delayTime, delayFeedback, delayMix);
+        
+        // Process effects on each channel
+        for (int channel = 0; channel < numChannels; ++channel)
+        {
+            float* channelData = buffer.getWritePointer(channel);
+            
+            for (int sample = 0; sample < numSamples; ++sample)
+            {
+                float dry = channelData[sample];
+                float wet = dry;
+                
+                // Apply effects through synthesis engine
+                wet = synthEngine->processEffects(wet);
+                
+                // Mix based on effect sends (effects are already mixed internally)
+                channelData[sample] = wet;
+            }
         }
     }
 }

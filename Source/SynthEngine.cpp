@@ -1184,3 +1184,54 @@ juce::StringArray SynthEngine::getModeNames()
     }
     return names;
 }
+
+void SynthEngine::setReverbParameters(float size, float mix)
+{
+    reverb.roomSize = size;
+    reverb.wetLevel = mix;
+    reverbMixLevel = mix;
+}
+
+void SynthEngine::setChorusParameters(float rate, float depth, float mix)
+{
+    chorus.rate = rate;
+    chorus.depth = depth;
+    chorus.mix = mix;
+    chorusMixLevel = mix;
+}
+
+void SynthEngine::setDelayParameters(float time, float feedback, float mix)
+{
+    delay.time = time;
+    delay.feedback = feedback;
+    delay.mix = mix;
+    delayMixLevel = mix;
+}
+
+float SynthEngine::processEffects(float input)
+{
+    float output = input;
+    
+    // Apply chorus if enabled
+    if (chorusMixLevel > 0.001f)
+    {
+        float chorusOut = chorus.process(input);
+        output = input * (1.0f - chorusMixLevel) + chorusOut * chorusMixLevel;
+    }
+    
+    // Apply delay if enabled
+    if (delayMixLevel > 0.001f)
+    {
+        float delayOut = delay.process(output);
+        output = output * (1.0f - delayMixLevel) + delayOut * delayMixLevel;
+    }
+    
+    // Apply reverb if enabled
+    if (reverbMixLevel > 0.001f)
+    {
+        float reverbOut = reverb.process(output);
+        output = output * (1.0f - reverbMixLevel) + reverbOut * reverbMixLevel;
+    }
+    
+    return output;
+}

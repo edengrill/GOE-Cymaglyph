@@ -102,6 +102,32 @@ private:
         // Voice-specific filter state
         float filterCutoff = 1000.0f;
         
+        // State variable filter for per-voice filtering
+        struct SVFilter {
+            float low = 0.0f;
+            float band = 0.0f;
+            float high = 0.0f;
+            float notch = 0.0f;
+            float peak = 0.0f;
+            
+            void reset() {
+                low = band = high = notch = peak = 0.0f;
+            }
+            
+            float process(float input, float cutoff, float resonance, float sampleRate) {
+                float f = 2.0f * std::sin(juce::MathConstants<float>::pi * cutoff / sampleRate);
+                float q = 1.0f / resonance;
+                
+                low += f * band;
+                high = input - low - q * band;
+                band += f * high;
+                notch = high + low;
+                peak = low - high;
+                
+                return low; // Default to lowpass
+            }
+        } filter;
+        
         void reset()
         {
             active = false;
@@ -115,6 +141,7 @@ private:
             filterEnvStage = Off;
             filterEnvLevel = 0.0f;
             filterCutoff = 1000.0f;
+            filter.reset();
         }
         
         void startNote()
@@ -176,6 +203,19 @@ private:
     // DC blocker for stability
     float dcBlockerX1 = 0.0f;
     float dcBlockerY1 = 0.0f;
+    
+    // LFO for modulation
+    struct LFO {
+        float phase = 0.0f;
+        float rate = 1.0f;
+        float depth = 0.0f;
+        
+        float process(float sampleRate) {
+            phase += rate / sampleRate;
+            if (phase >= 1.0f) phase -= 1.0f;
+            return std::sin(phase * 2.0f * juce::MathConstants<float>::pi) * depth;
+        }
+    } lfo1;
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SandWizardAudioProcessor)
 };

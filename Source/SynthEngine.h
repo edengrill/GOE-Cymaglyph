@@ -51,6 +51,12 @@ public:
     // Set velocity for expression
     void setVelocity(float vel) { velocity = vel; }
     
+    // Effects control
+    void setReverbParameters(float size, float mix);
+    void setChorusParameters(float rate, float depth, float mix);
+    void setDelayParameters(float time, float feedback, float mix);
+    float processEffects(float input);
+    
 private:
     // Synthesis modes
     float generateCrystalline(float phase, float frequency);
@@ -287,6 +293,11 @@ private:
     float lastFrequency = 440.0f;
     float currentPhase = 0.0f;
     int sampleCounter = 0;
+    
+    // Effects mix levels
+    float reverbMixLevel = 0.0f;
+    float chorusMixLevel = 0.0f;
+    float delayMixLevel = 0.0f;
     
     // Per-mode state (to prevent static variable issues)
     float plasmaCoreBuffer = 0.0f;
